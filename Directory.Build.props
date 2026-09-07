@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <!-- CA1848: LoggerMessage delegates - Phase 1 uses simple logging; will migrate in Phase 2.
+         CA1515: Internal types in application projects - many types need to be public for testing.
+         CA1056: Uri vs string for URLs - kept as string for simplicity in options/config records. -->
+    <NoWarn>$(NoWarn);CA1848;CA1515</NoWarn>
+  </PropertyGroup>
+</Project>

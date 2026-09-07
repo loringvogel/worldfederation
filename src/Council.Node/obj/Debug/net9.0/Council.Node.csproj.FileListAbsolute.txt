@@ -1,0 +1,17 @@
+C:\Users\lvoge\source\repos\worldfederation\src\Council.Node\obj\Debug\net9.0\Council.Node.csproj.AssemblyReference.cache
+C:\Users\lvoge\source\repos\worldfederation\src\Council.Node\obj\Debug\net9.0\Council.Node.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\lvoge\source\repos\worldfederation\src\Council.Node\obj\Debug\net9.0\Council.Node.AssemblyInfoInputs.cache
+C:\Users\lvoge\source\repos\worldfederation\src\Council.Node\obj\Debug\net9.0\Council.Node.AssemblyInfo.cs
+C:\Users\lvoge\source\repos\worldfederation\src\Council.Node\obj\Debug\net9.0\Council.Node.csproj.CoreCompileInputs.cache
+C:\Users\lvoge\source\repos\worldfederation\src\Council.Node\bin\Debug\net9.0\Council.Node.deps.json
+C:\Users\lvoge\source\repos\worldfederation\src\Council.Node\bin\Debug\net9.0\Council.Node.dll
+C:\Users\lvoge\source\repos\worldfederation\src\Council.Node\bin\Debug\net9.0\Council.Node.pdb
+C:\Users\lvoge\source\repos\worldfederation\src\Council.Node\bin\Debug\net9.0\Council.Contracts.dll
+C:\Users\lvoge\source\repos\worldfederation\src\Council.Node\bin\Debug\net9.0\Council.Cryptography.dll
+C:\Users\lvoge\source\repos\worldfederation\src\Council.Node\bin\Debug\net9.0\Council.Contracts.pdb
+C:\Users\lvoge\source\repos\worldfederation\src\Council.Node\bin\Debug\net9.0\Council.Cryptography.pdb
+C:\Users\lvoge\source\repos\worldfederation\src\Council.Node\obj\Debug\net9.0\Council..8666AF96.Up2Date
+C:\Users\lvoge\source\repos\worldfederation\src\Council.Node\obj\Debug\net9.0\Council.Node.dll
+C:\Users\lvoge\source\repos\worldfederation\src\Council.Node\obj\Debug\net9.0\refint\Council.Node.dll
+C:\Users\lvoge\source\repos\worldfederation\src\Council.Node\obj\Debug\net9.0\Council.Node.pdb
+C:\Users\lvoge\source\repos\worldfederation\src\Council.Node\obj\Debug\net9.0\ref\Council.Node.dll
