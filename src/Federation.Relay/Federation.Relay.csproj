@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Federation.Relay</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Federation.Protocol\Federation.Protocol.csproj" />
+    <ProjectReference Include="..\Federation.Deliberation\Federation.Deliberation.csproj" />
+    <ProjectReference Include="..\Federation.Cryptography\Federation.Cryptography.csproj" />
+    <ProjectReference Include="..\Federation.Storage\Federation.Storage.csproj" />
+    <ProjectReference Include="..\Federation.Sync\Federation.Sync.csproj" />
+  </ItemGroup>
+</Project>

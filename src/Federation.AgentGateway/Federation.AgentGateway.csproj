@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Federation.AgentGateway</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Federation.Protocol\Federation.Protocol.csproj" />
+    <ProjectReference Include="..\Federation.Deliberation\Federation.Deliberation.csproj" />
+  </ItemGroup>
+</Project>

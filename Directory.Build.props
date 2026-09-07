@@ -9,6 +9,11 @@
     <!-- CA1848: LoggerMessage delegates - Phase 1 uses simple logging; will migrate in Phase 2.
          CA1515: Internal types in application projects - many types need to be public for testing.
          CA1056: Uri vs string for URLs - kept as string for simplicity in options/config records. -->
-    <NoWarn>$(NoWarn);CA1848;CA1515</NoWarn>
+    <!-- CA1724: Type name conflicts with namespace - AgentGateway class in AgentGateway namespace.
+         CA1054: URI-like parameters should not be strings - kept as string for Phase 1.
+         CA2000: Dispose objects before losing scope - TcpTransport listener managed by class lifetime.
+         CA1849: Sync calls in async methods - Phase 1 SQLite calls; will migrate to async in Phase 2. -->
+    <!-- CA1859: Concrete return type - polymorphic by design in event deserialization. -->
+    <NoWarn>$(NoWarn);CA1848;CA1515;CA1724;CA1054;CA2000;CA1849;CA1859</NoWarn>
   </PropertyGroup>
 </Project>

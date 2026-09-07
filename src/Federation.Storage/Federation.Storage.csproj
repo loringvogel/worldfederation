@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Federation.Storage</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Federation.Protocol\Federation.Protocol.csproj" />
+    <ProjectReference Include="..\Federation.Identity\Federation.Identity.csproj" />
+    <ProjectReference Include="..\Federation.Sync\Federation.Sync.csproj" />
+  </ItemGroup>
+</Project>
