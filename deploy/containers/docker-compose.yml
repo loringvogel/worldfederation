@@ -1,0 +1,23 @@
+services:
+  relay:
+    build:
+      context: ../..
+      dockerfile: deploy/containers/Dockerfile
+    image: federation-relay:latest
+    container_name: federation-relay
+    ports:
+      - "5000:5000"
+    volumes:
+      - relay-data:/data
+    restart: unless-stopped
+    environment:
+      - StorageMode=Sqlite
+      - DatabasePath=/data/federation-relay.db
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  relay-data:

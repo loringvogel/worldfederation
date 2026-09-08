@@ -1,0 +1,130 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            ext: .exe
+          - os: windows-latest
+            rid: win-arm64
+            ext: .exe
+          - os: ubuntu-latest
+            rid: linux-x64
+            ext: ""
+          - os: ubuntu-latest
+            rid: linux-arm64
+            ext: ""
+          - os: macos-latest
+            rid: osx-x64
+            ext: ""
+          - os: macos-latest
+            rid: osx-arm64
+            ext: ""
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore
+        run: dotnet restore AgentFederation.sln
+
+      - name: Test
+        run: dotnet test AgentFederation.sln --configuration Release --no-restore --verbosity minimal
+
+      - name: Publish relay
+        run: >
+          dotnet publish src/Federation.Relay/Federation.Relay.csproj
+          --configuration Release
+          --runtime ${{ matrix.rid }}
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:EnableCompressionInSingleFile=true
+          -p:DebugType=embedded
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          --output publish/relay
+
+      - name: Publish CLI
+        run: >
+          dotnet publish src/Federation.Cli/Federation.Cli.csproj
+          --configuration Release
+          --runtime ${{ matrix.rid }}
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:EnableCompressionInSingleFile=true
+          -p:DebugType=embedded
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          --output publish/cli
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path publish/relay/federation-relay.exe -DestinationPath dist/federation-relay-${{ matrix.rid }}.zip
+          Compress-Archive -Path publish/cli/federation.exe           -DestinationPath dist/federation-${{ matrix.rid }}.zip
+
+      - name: Package (macOS / Linux)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p dist
+          zip -j dist/federation-relay-${{ matrix.rid }}.zip publish/relay/federation-relay
+          zip -j dist/federation-${{ matrix.rid }}.zip       publish/cli/federation
+          chmod +x publish/relay/federation-relay publish/cli/federation
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.rid }}
+          path: dist/
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**
+          body: |
+            ## Agent Federation ${{ github.ref_name }}
+
+            ### Downloads
+
+            | Platform | Relay (server) | CLI (participant) |
+            |---|---|---|
+            | Windows x64 | `federation-relay-win-x64.zip` | `federation-win-x64.zip` |
+            | Windows ARM64 | `federation-relay-win-arm64.zip` | `federation-win-arm64.zip` |
+            | macOS Intel | `federation-relay-osx-x64.zip` | `federation-osx-x64.zip` |
+            | macOS Apple Silicon | `federation-relay-osx-arm64.zip` | `federation-osx-arm64.zip` |
+            | Linux x64 | `federation-relay-linux-x64.zip` | `federation-linux-x64.zip` |
+            | Linux ARM64 | `federation-relay-linux-arm64.zip` | `federation-linux-arm64.zip` |
+
+            ### Quick start
+
+            See [README](https://github.com/loringvogel/worldfederation#readme) for full setup instructions.
+
+            > **No .NET installation required.** These are self-contained executables.
