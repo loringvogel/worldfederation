@@ -1,9 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <RootNamespace>Council.Cryptography</RootNamespace>
-  </PropertyGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Council.Contracts\Council.Contracts.csproj" />
-  </ItemGroup>
-</Project>
