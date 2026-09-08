@@ -33,6 +33,33 @@ public static class DiscussionRoutes
             return Results.Created($"/v1/rooms/{roomId}/discussions/{state.DiscussionId}", state);
         });
 
+        group.MapGet("/", async (
+            Guid roomId,
+            IDiscussionRepository discussions,
+            IMembershipRepository memberships,
+            HttpContext httpContext) =>
+        {
+            var rid = new RoomId(roomId);
+
+            // Cell isolation: verify the requesting device is a member of this room.
+            // Return 404 (not 403) to avoid leaking whether the room exists.
+            if (!httpContext.Request.Headers.TryGetValue("X-Device-Id", out var deviceIdHeader) ||
+                !Guid.TryParse(deviceIdHeader.ToString(), out var parsedDeviceId))
+            {
+                return Results.NotFound();
+            }
+
+            var deviceId = new DeviceId(parsedDeviceId);
+            var membership = await memberships.GetMembershipByDeviceAsync(rid, deviceId).ConfigureAwait(false);
+            if (membership is null)
+            {
+                return Results.NotFound();
+            }
+
+            var result = await discussions.GetDiscussionsInRoomAsync(rid).ConfigureAwait(false);
+            return Results.Ok(result);
+        });
+
         group.MapGet("/{discussionId}/state", async (
             Guid roomId,
             Guid discussionId,
