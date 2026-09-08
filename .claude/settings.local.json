@@ -12,7 +12,14 @@
       "Bash(ls tests/Federation.*/)",
       "Bash(rm -rf src/Council.Contracts src/Council.Coordinator.Worker src/Council.Cryptography src/Council.Domain src/Council.Infrastructure src/Council.Node src/Council.Node.ToolServer src/Council.Relay.Api)",
       "Bash(rm -rf tests/Council.Cryptography.Tests tests/Council.Domain.Tests tests/Council.Protocol.Tests)",
-      "Bash(rm -f SecureAgentCouncil.sln)"
+      "Bash(rm -f SecureAgentCouncil.sln)",
+      "Bash(gh repo:*)",
+      "Bash(dotnet publish:*)",
+      "Bash(gh run:*)",
+      "Bash(gh release:*)",
+      "WebSearch",
+      "Bash(dotnet restore:*)",
+      "Bash(dotnet list:*)"
     ]
   }
 }

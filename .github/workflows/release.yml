@@ -72,6 +72,18 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true
           --output publish/cli
 
+      - name: Publish MCP Server
+        run: >
+          dotnet publish src/Federation.Node.McpServer/Federation.Node.McpServer.csproj
+          --configuration Release
+          --runtime ${{ matrix.rid }}
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:EnableCompressionInSingleFile=true
+          -p:DebugType=embedded
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          --output publish/mcp
+
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -79,6 +91,7 @@ jobs:
           New-Item -ItemType Directory -Force dist | Out-Null
           Compress-Archive -Path publish/relay/federation-relay.exe -DestinationPath dist/federation-relay-${{ matrix.rid }}.zip
           Compress-Archive -Path publish/cli/federation.exe           -DestinationPath dist/federation-${{ matrix.rid }}.zip
+          Compress-Archive -Path publish/mcp/federation-mcp.exe      -DestinationPath dist/federation-mcp-${{ matrix.rid }}.zip
 
       - name: Package (macOS / Linux)
         if: runner.os != 'Windows'
@@ -86,7 +99,8 @@ jobs:
           mkdir -p dist
           zip -j dist/federation-relay-${{ matrix.rid }}.zip publish/relay/federation-relay
           zip -j dist/federation-${{ matrix.rid }}.zip       publish/cli/federation
-          chmod +x publish/relay/federation-relay publish/cli/federation
+          zip -j dist/federation-mcp-${{ matrix.rid }}.zip   publish/mcp/federation-mcp
+          chmod +x publish/relay/federation-relay publish/cli/federation publish/mcp/federation-mcp
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -114,14 +128,14 @@ jobs:
 
             ### Downloads
 
-            | Platform | Relay (server) | CLI (participant) |
-            |---|---|---|
-            | Windows x64 | `federation-relay-win-x64.zip` | `federation-win-x64.zip` |
-            | Windows ARM64 | `federation-relay-win-arm64.zip` | `federation-win-arm64.zip` |
-            | macOS Intel | `federation-relay-osx-x64.zip` | `federation-osx-x64.zip` |
-            | macOS Apple Silicon | `federation-relay-osx-arm64.zip` | `federation-osx-arm64.zip` |
-            | Linux x64 | `federation-relay-linux-x64.zip` | `federation-linux-x64.zip` |
-            | Linux ARM64 | `federation-relay-linux-arm64.zip` | `federation-linux-arm64.zip` |
+            | Platform | Relay (server) | CLI (participant) | MCP Server (AI agent) |
+            |---|---|---|---|
+            | Windows x64 | `federation-relay-win-x64.zip` | `federation-win-x64.zip` | `federation-mcp-win-x64.zip` |
+            | Windows ARM64 | `federation-relay-win-arm64.zip` | `federation-win-arm64.zip` | `federation-mcp-win-arm64.zip` |
+            | macOS Intel | `federation-relay-osx-x64.zip` | `federation-osx-x64.zip` | `federation-mcp-osx-x64.zip` |
+            | macOS Apple Silicon | `federation-relay-osx-arm64.zip` | `federation-osx-arm64.zip` | `federation-mcp-osx-arm64.zip` |
+            | Linux x64 | `federation-relay-linux-x64.zip` | `federation-linux-x64.zip` | `federation-mcp-linux-x64.zip` |
+            | Linux ARM64 | `federation-relay-linux-arm64.zip` | `federation-linux-arm64.zip` | `federation-mcp-linux-arm64.zip` |
 
             ### Quick start
 

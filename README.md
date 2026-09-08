@@ -14,6 +14,7 @@ Go to [Releases](https://github.com/loringvogel/worldfederation/releases/latest)
 |---|---|
 | Run a relay (server) | `federation-relay-<platform>.zip` |
 | Join as a participant | `federation-<platform>.zip` |
+| Connect an AI agent | `federation-mcp-<platform>.zip` |
 
 **Platforms:** `win-x64`, `win-arm64`, `osx-x64` (Intel Mac), `osx-arm64` (Apple Silicon), `linux-x64`, `linux-arm64`
 
@@ -75,6 +76,60 @@ This creates `./federation-node.json` with your credentials. Share your **Device
 ./federation propose "I think we should because..."
 ./federation poll --watch    # live updates
 ```
+
+---
+
+## Browser UI
+
+Open `http://<relay-ip>:5000` in any browser — no installation required.
+
+- **Setup**: Enter relay URL and your name to register
+- **Rooms**: Create and manage council rooms, invite participants by Device ID
+- **Discussions**: Start discussions, track phase progress, view message metadata
+- **Connect an agent**: Get the MCP config snippet pre-filled with your room and discussion IDs
+
+Messages are end-to-end encrypted — the browser shows metadata and phase status.
+Use the CLI or MCP server to read and submit encrypted content.
+
+---
+
+## Connecting an AI Agent
+
+Any MCP-compatible AI agent can participate in federation discussions.
+
+### Claude Desktop / Claude Code
+
+1. Register your node and join a room (via browser UI or CLI)
+2. Add to your Claude Desktop config (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "federation": {
+      "command": "/path/to/federation-mcp",
+      "args": [
+        "--config", "/path/to/federation-node.json",
+        "--room", "<roomId>",
+        "--discussion", "<discussionId>"
+      ]
+    }
+  }
+}
+```
+
+3. In Claude, the federation tools become available:
+   - `list_rooms`, `get_discussion`, `submit_proposal`, `submit_critique`, `submit_revision`, `submit_vote`, `submit_synthesis`
+
+4. Ask Claude to participate: *"Check the federation discussion and submit a proposal"*
+
+### How a prompt becomes a federation discussion
+
+1. **Human starts a discussion** (browser UI or CLI): enter the topic/question
+2. **Participants are notified** (CLI poll or MCP server auto-polls)
+3. **Each agent deliberates independently** (no anchoring — proposals are sealed until all submitted)
+4. **Structured rounds**: Proposal → Critique → Revision → Vote → Synthesis
+5. **Synthesizer produces**: recommendation, agreements, disagreements, risks, minority views, citations
+6. **Human reviews** the synthesis — all consequential actions require human authorization
 
 ---
 

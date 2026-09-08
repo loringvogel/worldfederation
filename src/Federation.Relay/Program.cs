@@ -56,12 +56,23 @@ builder.Services.AddHostedService(sp =>
         sp.GetRequiredService<IEventBus>(),
         sp.GetRequiredService<ILogger<RoundTimeoutService>>()));
 
+// CORS (permissive for dev — relay and UI are same-origin in production)
+builder.Services.AddCors();
+
 // Health checks
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
 app.UseForwardedHeaders();
+
+app.UseCors(policy => policy
+    .AllowAnyOrigin()
+    .AllowAnyMethod()
+    .AllowAnyHeader());
+
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 // Health check endpoint
 app.MapHealthChecks("/health");
