@@ -14,6 +14,12 @@ if (string.Equals(storageMode, "Sqlite", StringComparison.OrdinalIgnoreCase))
 {
     var dbPath = builder.Configuration.GetValue<string>("DatabasePath") ?? "federation-relay.db";
     builder.Services.AddFederationStorage(dbPath);
+
+    // Envelope pruning (requires FederationDatabase)
+    builder.Services.AddHostedService(sp =>
+        new EnvelopePruningService(
+            sp.GetRequiredService<FederationDatabase>(),
+            sp.GetRequiredService<ILogger<EnvelopePruningService>>()));
 }
 else
 {

@@ -8,6 +8,7 @@ public sealed class InMemoryIdentityStore : IIdentityStore
 {
     private readonly ConcurrentDictionary<DeviceId, DeviceIdentity> _identities = new();
     private readonly ConcurrentDictionary<DeviceId, PeerRecord> _peerRecords = new();
+    private readonly ConcurrentDictionary<RoomId, HashSet<DeviceId>> _roomMemberships = new();
 
     public Task StoreDeviceIdentityAsync(DeviceIdentity identity, CancellationToken ct = default)
     {
@@ -35,9 +36,39 @@ public sealed class InMemoryIdentityStore : IIdentityStore
         return Task.FromResult(record);
     }
 
-    public Task<IReadOnlyList<PeerRecord>> GetAllPeerRecordsAsync(CancellationToken ct = default)
+    public Task<IReadOnlyList<PeerRecord>> GetPeersForRoomAsync(RoomId roomId, CancellationToken ct = default)
     {
-        IReadOnlyList<PeerRecord> result = _peerRecords.Values.ToList();
-        return Task.FromResult(result);
+        if (!_roomMemberships.TryGetValue(roomId, out var deviceIds))
+        {
+            return Task.FromResult<IReadOnlyList<PeerRecord>>(Array.Empty<PeerRecord>());
+        }
+
+        var result = new List<PeerRecord>();
+        lock (deviceIds)
+        {
+            foreach (var did in deviceIds)
+            {
+                if (_peerRecords.TryGetValue(did, out var record))
+                {
+                    result.Add(record);
+                }
+            }
+        }
+
+        return Task.FromResult<IReadOnlyList<PeerRecord>>(result);
+    }
+
+    public Task StorePeerRecordForRoomAsync(RoomId roomId, PeerRecord record, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        _peerRecords[record.DeviceId] = record;
+
+        var set = _roomMemberships.GetOrAdd(roomId, _ => new HashSet<DeviceId>());
+        lock (set)
+        {
+            set.Add(record.DeviceId);
+        }
+
+        return Task.CompletedTask;
     }
 }

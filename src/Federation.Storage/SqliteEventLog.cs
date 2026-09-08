@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Federation.Protocol;
 using Federation.Sync;
 
 namespace Federation.Storage;
@@ -78,6 +79,13 @@ public sealed class SqliteEventLog : IEventLog
         using var reader = cmd.ExecuteReader();
         if (!reader.Read()) return Task.FromResult<FederationEvent?>(null);
         return Task.FromResult<FederationEvent?>(ReadEvent(reader));
+    }
+
+    public Task<IReadOnlyList<FederationEvent>> GetEventsForRoomsAsync(IEnumerable<RoomId> roomIds, string? afterEventId, CancellationToken ct = default)
+    {
+        // For now, delegate to GetEventsAsync since we don't store room_id on federation_events.
+        // In a full implementation, the events table would have a room_id column for filtering.
+        return GetEventsAsync(afterEventId, ct);
     }
 
     private static FederationEvent ReadEvent(Microsoft.Data.Sqlite.SqliteDataReader reader)

@@ -31,6 +31,15 @@ public static class EnvelopeRoutes
                 return Results.Unauthorized();
             }
 
+            // Cell isolation: verify device membership is scoped to this specific room.
+            // The relay must not reveal whether a device exists in other rooms.
+            // A 404 and a 403 response must be indistinguishable to prevent room enumeration.
+            var membership = await memberships.GetMembershipByDeviceAsync(rid, envelope.SenderDeviceId).ConfigureAwait(false);
+            if (membership is null)
+            {
+                return Results.NotFound();
+            }
+
             // Check discussion exists and is in a valid phase
             var discussion = await discussions.GetDiscussionAsync(did).ConfigureAwait(false);
             if (discussion is null)
@@ -48,13 +57,6 @@ public static class EnvelopeRoutes
             if (envelope.DiscussionId != did)
             {
                 return Results.BadRequest("Discussion ID in envelope does not match route.");
-            }
-
-            // Check sender is a member of the room
-            var membership = await memberships.GetMembershipByDeviceAsync(rid, envelope.SenderDeviceId).ConfigureAwait(false);
-            if (membership is null)
-            {
-                return Results.Forbid();
             }
 
             // Validate envelope fields (relay-side checks per spec section 12)
@@ -102,10 +104,29 @@ public static class EnvelopeRoutes
             Guid roomId,
             Guid discussionId,
             [FromQuery] long? after,
-            IMessageStore messages) =>
+            IMessageStore messages,
+            IMembershipRepository memberships,
+            HttpContext httpContext) =>
         {
+            var rid = new RoomId(roomId);
+
+            // Cell isolation: verify the requesting device is a member of this room.
+            // Return 404 (not 403) to avoid leaking whether the room exists.
+            if (!httpContext.Request.Headers.TryGetValue("X-Device-Id", out var deviceIdHeader) ||
+                !Guid.TryParse(deviceIdHeader.ToString(), out var parsedDeviceId))
+            {
+                return Results.NotFound();
+            }
+
+            var deviceId = new DeviceId(parsedDeviceId);
+            var membership = await memberships.GetMembershipByDeviceAsync(rid, deviceId).ConfigureAwait(false);
+            if (membership is null)
+            {
+                return Results.NotFound();
+            }
+
             var response = await messages.GetEnvelopesAsync(
-                new RoomId(roomId),
+                rid,
                 new DiscussionId(discussionId),
                 after ?? 0).ConfigureAwait(false);
             return Results.Ok(response);

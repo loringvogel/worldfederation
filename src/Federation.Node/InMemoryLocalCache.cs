@@ -39,6 +39,50 @@ public sealed class InMemoryLocalCache
     }
 }
 
+/// <summary>In-memory implementation of ILocalMessageCache for development and testing.</summary>
+public sealed class InMemoryLocalMessageCache : ILocalMessageCache
+{
+    private readonly ConcurrentDictionary<(RoomId, DiscussionId), List<CachedMessage>> _cache = new();
+
+    public Task StoreAsync(MessageId messageId, RoomId roomId, DiscussionId discussionId,
+        DeviceId senderDeviceId, MessageType type, int round,
+        byte[] contentEncrypted, CancellationToken ct = default)
+    {
+        var key = (roomId, discussionId);
+        var list = _cache.GetOrAdd(key, _ => new List<CachedMessage>());
+        lock (list)
+        {
+            list.Add(new CachedMessage
+            {
+                MessageId = messageId,
+                SenderDeviceId = senderDeviceId,
+                Type = type,
+                Round = round,
+                ContentEncrypted = contentEncrypted,
+                ReceivedAt = DateTimeOffset.UtcNow,
+            });
+        }
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<CachedMessage>> GetMessagesAsync(RoomId roomId, DiscussionId discussionId, CancellationToken ct = default)
+    {
+        var key = (roomId, discussionId);
+        if (!_cache.TryGetValue(key, out var list))
+            return Task.FromResult<IReadOnlyList<CachedMessage>>(Array.Empty<CachedMessage>());
+        lock (list)
+        {
+            return Task.FromResult<IReadOnlyList<CachedMessage>>(list.ToList());
+        }
+    }
+
+    public Task WipeAsync(CancellationToken ct = default)
+    {
+        _cache.Clear();
+        return Task.CompletedTask;
+    }
+}
+
 /// <summary>A decrypted council message as stored in the local node cache.</summary>
 public sealed record DecryptedMessage
 {

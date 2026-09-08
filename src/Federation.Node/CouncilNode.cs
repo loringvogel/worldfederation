@@ -31,6 +31,8 @@ public sealed class CouncilNode : IDisposable
     private readonly IRelayTransport? _relayTransport;
     private readonly IIdentityStore? _identityStore;
     private readonly IEventLog? _eventLog;
+    private readonly IAcknowledgementStore? _acknowledgementStore;
+    private readonly CancellationTokenSource _cts = new();
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -50,7 +52,8 @@ public sealed class CouncilNode : IDisposable
         byte[] privateKey,
         IRelayTransport? relayTransport = null,
         IIdentityStore? identityStore = null,
-        IEventLog? eventLog = null)
+        IEventLog? eventLog = null,
+        IAcknowledgementStore? acknowledgementStore = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(crypto);
@@ -73,6 +76,7 @@ public sealed class CouncilNode : IDisposable
         _relayTransport = relayTransport;
         _identityStore = identityStore;
         _eventLog = eventLog;
+        _acknowledgementStore = acknowledgementStore;
 
         // Set Phase 1 auth headers
         _httpClient.DefaultRequestHeaders.Add("X-Device-Id", options.DeviceId.Value.ToString());
@@ -99,12 +103,23 @@ public sealed class CouncilNode : IDisposable
     /// <summary>The node's configuration options.</summary>
     public CouncilNodeOptions Options => _options;
 
+    /// <summary>The node's key store.</summary>
+    public IKeyStore KeyStore => _keyStore;
+
     /// <summary>
     /// Polls the relay for new envelopes for all known discussions and processes them.
     /// </summary>
     public async Task PollAndProcessAsync(RoomId roomId, DiscussionId discussionId, CancellationToken ct = default)
     {
         var cursorKey = (roomId, discussionId);
+
+        // Load cursor from persistent store if available and not yet cached in memory
+        if (!_cursors.ContainsKey(cursorKey) && _acknowledgementStore is not null)
+        {
+            var persistedCursor = await _acknowledgementStore.GetCursorAsync(roomId, discussionId, ct).ConfigureAwait(false);
+            _cursors[cursorKey] = persistedCursor;
+        }
+
         _cursors.TryGetValue(cursorKey, out var cursor);
 
         var url = $"{_options.RelayBaseUrl}/v1/rooms/{roomId.Value}/discussions/{discussionId.Value}/envelopes?after={cursor}";
@@ -135,6 +150,12 @@ public sealed class CouncilNode : IDisposable
         }
 
         _cursors[cursorKey] = envelopeResponse.Cursor;
+
+        // Persist cursor if store is available
+        if (_acknowledgementStore is not null)
+        {
+            await _acknowledgementStore.SetCursorAsync(roomId, discussionId, envelopeResponse.Cursor, ct).ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -198,6 +219,40 @@ public sealed class CouncilNode : IDisposable
             return false;
         }
 #pragma warning restore CA1031
+    }
+
+    /// <summary>
+    /// Immediately halts the node, wipes local keys and cached data, and signals
+    /// the relay to revoke this device from all rooms. After this call the node
+    /// cannot decrypt past or future messages. The room epoch rotates, severing
+    /// this cell from all others.
+    ///
+    /// Analogy: a captured FLN cell member who destroys their contact list.
+    /// The cell is gone but other cells are unaffected.
+    /// </summary>
+    public async Task EmergencyStopAsync(CancellationToken ct = default)
+    {
+        // 1. Stop the poll loop immediately
+        await _cts.CancelAsync().ConfigureAwait(false);
+
+        // 2. Wipe all local key material
+        await _keyStore.DeleteAllKeysAsync(ct).ConfigureAwait(false);
+
+        // 3. Post emergency revoke to relay
+        try
+        {
+            var url = $"{_options.RelayBaseUrl}/v1/devices/{_options.DeviceId.Value}/emergency-revoke";
+            await _httpClient.PostAsync(new Uri(url), null, ct).ConfigureAwait(false);
+        }
+#pragma warning disable CA1031 // Network errors during emergency stop should not prevent local cleanup
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to post emergency revoke to relay. Local keys are still wiped.");
+        }
+#pragma warning restore CA1031
+
+        // 4. Log security event
+        _logger.LogCritical("Emergency stop executed. Local keys wiped. Device revoked from all rooms.");
     }
 
     private void ProcessEnvelope(MessageEnvelope envelope, RoomId expectedRoomId, DiscussionId expectedDiscussionId, long cursor)
@@ -283,6 +338,7 @@ public sealed class CouncilNode : IDisposable
 
     public void Dispose()
     {
+        _cts.Dispose();
         _httpClient.Dispose();
     }
 }

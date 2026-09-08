@@ -21,6 +21,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISecurityEventStore, SqliteSecurityEventStore>();
         services.AddSingleton<IIdentityStore, SqliteIdentityStore>();
         services.AddSingleton<IEventLog, SqliteEventLog>();
+        services.AddSingleton<IDeviceRepository, SqliteDeviceRepository>();
+        services.AddSingleton<IAcknowledgementStore, SqliteAcknowledgementStore>();
+        services.AddSingleton<ILocalMessageCache, SqliteLocalMessageCache>();
 
         return services;
     }

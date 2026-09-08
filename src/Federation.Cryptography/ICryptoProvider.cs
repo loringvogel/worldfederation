@@ -49,4 +49,5 @@ public interface IKeyStore
     Task StoreDeviceKeyAsync(DeviceId deviceId, byte[] privateKey, CancellationToken ct = default);
     Task<byte[]?> LoadDeviceKeyAsync(DeviceId deviceId, CancellationToken ct = default);
     Task DeleteEpochKeyAsync(EpochId epoch, CancellationToken ct = default);
+    Task DeleteAllKeysAsync(CancellationToken ct = default);
 }

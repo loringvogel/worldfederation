@@ -86,15 +86,42 @@ public sealed class SqliteIdentityStore : IIdentityStore
         return Task.FromResult<PeerRecord?>(ReadPeerRecord(reader));
     }
 
-    public Task<IReadOnlyList<PeerRecord>> GetAllPeerRecordsAsync(CancellationToken ct = default)
+    public Task<IReadOnlyList<PeerRecord>> GetPeersForRoomAsync(RoomId roomId, CancellationToken ct = default)
     {
         using var cmd = _db.Connection.CreateCommand();
-        cmd.CommandText = "SELECT device_id, human_id, addresses, supported_protocol_versions, issued_at, expires_at, capabilities, signature FROM peer_records";
+        cmd.CommandText = """
+            SELECT p.device_id, p.human_id, p.addresses, p.supported_protocol_versions, p.issued_at, p.expires_at, p.capabilities, p.signature
+            FROM peer_records p
+            INNER JOIN room_peer_memberships m ON p.device_id = m.device_id
+            WHERE m.room_id = @rid
+            """;
+        cmd.Parameters.AddWithValue("@rid", roomId.Value.ToString());
 
         var list = new List<PeerRecord>();
         using var reader = cmd.ExecuteReader();
         while (reader.Read()) list.Add(ReadPeerRecord(reader));
         return Task.FromResult<IReadOnlyList<PeerRecord>>(list);
+    }
+
+    public Task StorePeerRecordForRoomAsync(RoomId roomId, PeerRecord record, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+
+        // Upsert the peer record
+        StorePeerRecordAsync(record, ct);
+
+        // Insert room membership
+        using var cmd = _db.Connection.CreateCommand();
+        cmd.CommandText = """
+            INSERT OR IGNORE INTO room_peer_memberships (room_id, device_id, added_at)
+            VALUES (@rid, @did, @added)
+            """;
+        cmd.Parameters.AddWithValue("@rid", roomId.Value.ToString());
+        cmd.Parameters.AddWithValue("@did", record.DeviceId.Value.ToString());
+        cmd.Parameters.AddWithValue("@added", DateTimeOffset.UtcNow.ToString("O"));
+        cmd.ExecuteNonQuery();
+
+        return Task.CompletedTask;
     }
 
     private static PeerRecord ReadPeerRecord(Microsoft.Data.Sqlite.SqliteDataReader reader)

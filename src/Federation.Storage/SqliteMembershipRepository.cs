@@ -95,6 +95,18 @@ public sealed class SqliteMembershipRepository : IMembershipRepository
         return Task.CompletedTask;
     }
 
+    public Task<IReadOnlyList<RoomId>> GetRoomsForDeviceAsync(DeviceId deviceId, CancellationToken ct = default)
+    {
+        using var cmd = _db.Connection.CreateCommand();
+        cmd.CommandText = "SELECT DISTINCT room_id FROM memberships WHERE device_id = @did AND revoked_at IS NULL";
+        cmd.Parameters.AddWithValue("@did", deviceId.Value.ToString());
+
+        var list = new List<RoomId>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read()) list.Add(new RoomId(Guid.Parse(reader.GetString(0))));
+        return Task.FromResult<IReadOnlyList<RoomId>>(list);
+    }
+
     private static MembershipRecord ReadMembership(SqliteDataReader reader)
     {
         var revokedStr = reader.IsDBNull(5) ? null : reader.GetString(5);

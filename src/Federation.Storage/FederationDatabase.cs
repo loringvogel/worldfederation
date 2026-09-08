@@ -120,8 +120,78 @@ public sealed class FederationDatabase : IDisposable
                 payload TEXT,
                 signature BLOB NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS devices (
+                device_id TEXT PRIMARY KEY,
+                display_name TEXT NOT NULL,
+                public_key BLOB NOT NULL,
+                registered_at TEXT NOT NULL,
+                device_token TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS round_submissions (
+                round_id TEXT NOT NULL,
+                device_id TEXT NOT NULL,
+                submitted_at TEXT NOT NULL,
+                PRIMARY KEY (round_id, device_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS acknowledgements (
+                room_id TEXT NOT NULL,
+                discussion_id TEXT NOT NULL,
+                cursor INTEGER NOT NULL DEFAULT 0,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (room_id, discussion_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS invitations (
+                invitation_id TEXT PRIMARY KEY,
+                room_id TEXT NOT NULL,
+                invited_by_device_id TEXT NOT NULL,
+                invited_device_id TEXT,
+                invitation_token TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                accepted_at TEXT,
+                revoked_at TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS revocations (
+                revocation_id TEXT PRIMARY KEY,
+                room_id TEXT NOT NULL,
+                device_id TEXT NOT NULL,
+                revoked_by_device_id TEXT NOT NULL,
+                revoked_at TEXT NOT NULL,
+                epoch_after INTEGER NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS room_peer_memberships (
+                room_id TEXT NOT NULL,
+                device_id TEXT NOT NULL,
+                added_at TEXT NOT NULL,
+                PRIMARY KEY (room_id, device_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS local_message_cache (
+                message_id TEXT PRIMARY KEY,
+                room_id TEXT NOT NULL,
+                discussion_id TEXT NOT NULL,
+                sender_device_id TEXT NOT NULL,
+                message_type TEXT NOT NULL,
+                round INTEGER NOT NULL,
+                content_encrypted BLOB NOT NULL,
+                received_at TEXT NOT NULL
+            );
             """;
         cmd.ExecuteNonQuery();
+    }
+
+    public int PruneExpiredEnvelopes()
+    {
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "DELETE FROM message_envelopes WHERE expires_at < @now";
+        cmd.Parameters.AddWithValue("@now", DateTimeOffset.UtcNow.ToString("O"));
+        return cmd.ExecuteNonQuery();
     }
 
     public void Dispose()

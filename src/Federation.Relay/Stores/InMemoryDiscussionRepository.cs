@@ -6,6 +6,7 @@ namespace Federation.Relay.Stores;
 public sealed class InMemoryDiscussionRepository : IDiscussionRepository
 {
     private readonly ConcurrentDictionary<DiscussionId, DiscussionState> _discussions = new();
+    private readonly ConcurrentDictionary<RoundId, HashSet<DeviceId>> _roundSubmissions = new();
 
     public Task<DiscussionState> CreateDiscussionAsync(CreateDiscussionRequest request, CancellationToken ct = default)
     {
@@ -54,5 +55,35 @@ public sealed class InMemoryDiscussionRepository : IDiscussionRepository
     {
         IReadOnlyList<DiscussionState> result = _discussions.Values.Where(d => d.RoomId == roomId).ToList();
         return Task.FromResult(result);
+    }
+
+    public Task RecordSubmissionAsync(RoundId roundId, DeviceId deviceId, CancellationToken ct = default)
+    {
+        var set = _roundSubmissions.GetOrAdd(roundId, _ => new HashSet<DeviceId>());
+        lock (set)
+        {
+            set.Add(deviceId);
+        }
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> HasSubmittedAsync(RoundId roundId, DeviceId deviceId, CancellationToken ct = default)
+    {
+        if (!_roundSubmissions.TryGetValue(roundId, out var set))
+            return Task.FromResult(false);
+        lock (set)
+        {
+            return Task.FromResult(set.Contains(deviceId));
+        }
+    }
+
+    public Task<IReadOnlyList<DeviceId>> GetSubmittedDevicesAsync(RoundId roundId, CancellationToken ct = default)
+    {
+        if (!_roundSubmissions.TryGetValue(roundId, out var set))
+            return Task.FromResult<IReadOnlyList<DeviceId>>(Array.Empty<DeviceId>());
+        lock (set)
+        {
+            return Task.FromResult<IReadOnlyList<DeviceId>>(set.ToList());
+        }
     }
 }

@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet new:*)",
+      "Bash(dotnet sln:*)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet test:*)",
+      "Bash(find:*)",
+      "Bash(mkdir:*)",
+      "Bash(ls *.sln)",
+      "Bash(ls src/Federation.*/)",
+      "Bash(ls tests/Federation.*/)"
+    ]
+  }
+}

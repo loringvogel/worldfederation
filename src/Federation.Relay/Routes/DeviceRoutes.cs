@@ -28,6 +28,35 @@ public static class DeviceRoutes
             return Results.NoContent();
         });
 
+        group.MapPost("/{deviceId}/emergency-revoke", async (
+            Guid deviceId,
+            IMembershipRepository memberships,
+            ISecurityEventStore securityEvents) =>
+        {
+            var did = new DeviceId(deviceId);
+
+            // Revoke device from ALL rooms in one call
+            var roomIds = await memberships.GetRoomsForDeviceAsync(did).ConfigureAwait(false);
+            foreach (var roomId in roomIds)
+            {
+                var membership = await memberships.GetMembershipByDeviceAsync(roomId, did).ConfigureAwait(false);
+                if (membership is not null)
+                {
+                    await memberships.RevokeMembershipAsync(membership.MembershipId).ConfigureAwait(false);
+                }
+            }
+
+            await securityEvents.AppendAsync(new SecurityEvent
+            {
+                OccurredAt = DateTimeOffset.UtcNow,
+                EventType = "EmergencyRevoke",
+                Description = $"Emergency revocation of device {did} from {roomIds.Count} room(s).",
+                DeviceId = did,
+            }).ConfigureAwait(false);
+
+            return Results.Ok(new { RevokedFromRooms = roomIds.Count });
+        });
+
         return group;
     }
 }

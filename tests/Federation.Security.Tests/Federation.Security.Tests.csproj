@@ -5,6 +5,7 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
@@ -17,5 +18,9 @@
     <ProjectReference Include="..\..\src\Federation.Deliberation\Federation.Deliberation.csproj" />
     <ProjectReference Include="..\..\src\Federation.Cryptography\Federation.Cryptography.csproj" />
     <ProjectReference Include="..\..\src\Federation.Protocol\Federation.Protocol.csproj" />
+    <ProjectReference Include="..\..\src\Federation.Storage\Federation.Storage.csproj" />
+    <ProjectReference Include="..\..\src\Federation.Identity\Federation.Identity.csproj" />
+    <ProjectReference Include="..\..\src\Federation.Node\Federation.Node.csproj" />
+    <ProjectReference Include="..\..\src\Federation.Relay\Federation.Relay.csproj" />
   </ItemGroup>
 </Project>

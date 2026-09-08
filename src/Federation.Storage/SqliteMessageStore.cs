@@ -7,8 +7,6 @@ namespace Federation.Storage;
 public sealed class SqliteMessageStore : IMessageStore
 {
     private readonly FederationDatabase _db;
-    private long _cursor;
-    private readonly object _lock = new();
 
     public SqliteMessageStore(FederationDatabase db)
     {
@@ -24,7 +22,8 @@ public sealed class SqliteMessageStore : IMessageStore
         cmd.CommandText = """
             INSERT OR IGNORE INTO message_envelopes
             (message_id, room_id, discussion_id, epoch, sender_device_id, message_type, round, created_at, expires_at, cipher_suite, ciphertext, signature, inserted_at)
-            VALUES (@mid, @rid, @did, @epoch, @sender, @mtype, @round, @created, @expires, @suite, @cipher, @sig, @inserted)
+            VALUES (@mid, @rid, @did, @epoch, @sender, @mtype, @round, @created, @expires, @suite, @cipher, @sig, @inserted);
+            SELECT last_insert_rowid()
             """;
         cmd.Parameters.AddWithValue("@mid", envelope.MessageId.Value.ToString());
         cmd.Parameters.AddWithValue("@rid", envelope.RoomId.Value.ToString());
@@ -39,43 +38,35 @@ public sealed class SqliteMessageStore : IMessageStore
         cmd.Parameters.AddWithValue("@cipher", envelope.Ciphertext);
         cmd.Parameters.AddWithValue("@sig", envelope.Signature);
         cmd.Parameters.AddWithValue("@inserted", DateTimeOffset.UtcNow.ToString("O"));
-        cmd.ExecuteNonQuery();
 
-        long cursor;
-        lock (_lock)
-        {
-            cursor = ++_cursor;
-        }
-
-        return Task.FromResult(cursor);
+        var rowid = (long)(cmd.ExecuteScalar() ?? 0);
+        return Task.FromResult(rowid);
     }
 
     public Task<GetEnvelopesResponse> GetEnvelopesAsync(RoomId roomId, DiscussionId discussionId, long afterCursor, CancellationToken ct = default)
     {
         using var cmd = _db.Connection.CreateCommand();
         cmd.CommandText = """
-            SELECT message_id, room_id, discussion_id, epoch, sender_device_id, message_type, round, created_at, expires_at, cipher_suite, ciphertext, signature
+            SELECT message_id, room_id, discussion_id, epoch, sender_device_id, message_type, round, created_at, expires_at, cipher_suite, ciphertext, signature, rowid
             FROM message_envelopes
-            WHERE room_id = @rid AND discussion_id = @did
+            WHERE room_id = @rid AND discussion_id = @did AND rowid > @afterCursor
             ORDER BY rowid
             """;
         cmd.Parameters.AddWithValue("@rid", roomId.Value.ToString());
         cmd.Parameters.AddWithValue("@did", discussionId.Value.ToString());
+        cmd.Parameters.AddWithValue("@afterCursor", afterCursor);
 
         var envelopes = new List<MessageEnvelope>();
+        long maxRowid = afterCursor;
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {
             envelopes.Add(ReadEnvelope(reader));
+            var rowid = reader.GetInt64(12);
+            if (rowid > maxRowid) maxRowid = rowid;
         }
 
-        long cursor;
-        lock (_lock)
-        {
-            cursor = _cursor;
-        }
-
-        return Task.FromResult(new GetEnvelopesResponse { Envelopes = envelopes, Cursor = cursor });
+        return Task.FromResult(new GetEnvelopesResponse { Envelopes = envelopes, Cursor = maxRowid });
     }
 
     public Task<bool> ExistsAsync(MessageId messageId, CancellationToken ct = default)

@@ -46,4 +46,14 @@ public sealed class InMemoryMembershipRepository : IMembershipRepository
         _memberships[membershipId] = existing with { RevokedAt = DateTimeOffset.UtcNow };
         return Task.CompletedTask;
     }
+
+    public Task<IReadOnlyList<RoomId>> GetRoomsForDeviceAsync(DeviceId deviceId, CancellationToken ct = default)
+    {
+        IReadOnlyList<RoomId> result = _memberships.Values
+            .Where(m => m.DeviceId == deviceId && m.IsActive)
+            .Select(m => m.RoomId)
+            .Distinct()
+            .ToList();
+        return Task.FromResult(result);
+    }
 }

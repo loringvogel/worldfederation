@@ -109,6 +109,42 @@ public sealed class SqliteDiscussionRepository : IDiscussionRepository
         return Task.FromResult<IReadOnlyList<DiscussionState>>(list);
     }
 
+    public Task RecordSubmissionAsync(RoundId roundId, DeviceId deviceId, CancellationToken ct = default)
+    {
+        using var cmd = _db.Connection.CreateCommand();
+        cmd.CommandText = "INSERT OR IGNORE INTO round_submissions (round_id, device_id, submitted_at) VALUES (@rid, @did, @sub)";
+        cmd.Parameters.AddWithValue("@rid", roundId.Value.ToString());
+        cmd.Parameters.AddWithValue("@did", deviceId.Value.ToString());
+        cmd.Parameters.AddWithValue("@sub", DateTimeOffset.UtcNow.ToString("O"));
+        cmd.ExecuteNonQuery();
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> HasSubmittedAsync(RoundId roundId, DeviceId deviceId, CancellationToken ct = default)
+    {
+        using var cmd = _db.Connection.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(1) FROM round_submissions WHERE round_id = @rid AND device_id = @did";
+        cmd.Parameters.AddWithValue("@rid", roundId.Value.ToString());
+        cmd.Parameters.AddWithValue("@did", deviceId.Value.ToString());
+        var count = (long)(cmd.ExecuteScalar() ?? 0);
+        return Task.FromResult(count > 0);
+    }
+
+    public Task<IReadOnlyList<DeviceId>> GetSubmittedDevicesAsync(RoundId roundId, CancellationToken ct = default)
+    {
+        using var cmd = _db.Connection.CreateCommand();
+        cmd.CommandText = "SELECT device_id FROM round_submissions WHERE round_id = @rid";
+        cmd.Parameters.AddWithValue("@rid", roundId.Value.ToString());
+
+        var list = new List<DeviceId>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            list.Add(new DeviceId(Guid.Parse(reader.GetString(0))));
+        }
+        return Task.FromResult<IReadOnlyList<DeviceId>>(list);
+    }
+
     private static DiscussionState ReadDiscussion(SqliteDataReader reader)
     {
         var deadlineStr = reader.IsDBNull(6) ? null : reader.GetString(6);

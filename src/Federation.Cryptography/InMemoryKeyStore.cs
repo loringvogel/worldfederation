@@ -49,4 +49,12 @@ public sealed class InMemoryKeyStore : IKeyStore
         var result = _epochKeys.TryGetValue(epoch, out var key) ? (byte[])key.Clone() : null;
         return Task.FromResult(result);
     }
+
+    /// <inheritdoc />
+    public Task DeleteAllKeysAsync(CancellationToken ct = default)
+    {
+        _deviceKeys.Clear();
+        _epochKeys.Clear();
+        return Task.CompletedTask;
+    }
 }

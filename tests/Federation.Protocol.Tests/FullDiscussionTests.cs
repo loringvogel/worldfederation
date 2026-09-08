@@ -130,8 +130,12 @@ public sealed class FullDiscussionTests : IClassFixture<WebApplicationFactory<Pr
         await SubmitEnvelopeAsync(client, room.RoomId, discussion.DiscussionId, device3, MessageType.Synthesis, 1, "Synthesis: Council unanimously approves policy X with phased implementation and economic safeguards.");
 
         // Verify all envelopes were stored
-        var envelopesResponse = await client.GetFromJsonAsync<GetEnvelopesResponse>(
-            $"/v1/rooms/{room.RoomId.Value}/discussions/{discussion.DiscussionId.Value}/envelopes?after=0", JsonOptions);
+        using var getMsg = new HttpRequestMessage(HttpMethod.Get,
+            $"/v1/rooms/{room.RoomId.Value}/discussions/{discussion.DiscussionId.Value}/envelopes?after=0");
+        getMsg.Headers.Add("X-Device-Id", device1.DeviceId.Value.ToString());
+        var getResponse = await client.SendAsync(getMsg);
+        getResponse.EnsureSuccessStatusCode();
+        var envelopesResponse = await getResponse.Content.ReadFromJsonAsync<GetEnvelopesResponse>(JsonOptions);
 
         Assert.NotNull(envelopesResponse);
         Assert.Equal(12, envelopesResponse.Envelopes.Count); // 3 proposals + 3 critiques + 2 revisions + 3 votes + 1 synthesis

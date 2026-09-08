@@ -26,6 +26,7 @@ public interface IMembershipRepository
     Task<IReadOnlyList<DeviceId>> GetDevicesForRoomAsync(RoomId roomId, CancellationToken ct = default);
     Task<MembershipRecord> AddMembershipAsync(RoomId roomId, DeviceId deviceId, MemberRole role, CancellationToken ct = default);
     Task RevokeMembershipAsync(MembershipId membershipId, CancellationToken ct = default);
+    Task<IReadOnlyList<RoomId>> GetRoomsForDeviceAsync(DeviceId deviceId, CancellationToken ct = default);
 }
 
 /// <summary>Manages council rooms.</summary>
@@ -45,6 +46,9 @@ public interface IDiscussionRepository
     Task IncrementSubmissionCountAsync(DiscussionId discussionId, CancellationToken ct = default);
     Task<IReadOnlyList<DiscussionState>> GetActiveDiscussionsAsync(CancellationToken ct = default);
     Task<IReadOnlyList<DiscussionState>> GetDiscussionsInRoomAsync(RoomId roomId, CancellationToken ct = default);
+    Task RecordSubmissionAsync(RoundId roundId, DeviceId deviceId, CancellationToken ct = default);
+    Task<bool> HasSubmittedAsync(RoundId roundId, DeviceId deviceId, CancellationToken ct = default);
+    Task<IReadOnlyList<DeviceId>> GetSubmittedDevicesAsync(RoundId roundId, CancellationToken ct = default);
 }
 
 /// <summary>Stores security-relevant events for audit.</summary>
@@ -61,4 +65,33 @@ public interface IDeviceRepository
     Task<DeviceRegistration?> GetDeviceAsync(DeviceId deviceId, CancellationToken ct = default);
     Task<bool> ValidateTokenAsync(DeviceId deviceId, string token, CancellationToken ct = default);
     Task RemoveDeviceAsync(DeviceId deviceId, CancellationToken ct = default);
+}
+
+/// <summary>Tracks acknowledgement cursors for relay polling.</summary>
+public interface IAcknowledgementStore
+{
+    Task<long> GetCursorAsync(RoomId roomId, DiscussionId discussionId, CancellationToken ct = default);
+    Task SetCursorAsync(RoomId roomId, DiscussionId discussionId, long cursor, CancellationToken ct = default);
+}
+
+/// <summary>Caches decrypted messages locally, re-encrypted with the device key.</summary>
+public interface ILocalMessageCache
+{
+    Task StoreAsync(MessageId messageId, RoomId roomId, DiscussionId discussionId,
+        DeviceId senderDeviceId, MessageType type, int round,
+        byte[] contentEncrypted, CancellationToken ct = default);
+    Task<IReadOnlyList<CachedMessage>> GetMessagesAsync(RoomId roomId, DiscussionId discussionId, CancellationToken ct = default);
+    Task WipeAsync(CancellationToken ct = default);
+}
+
+/// <summary>A locally cached message, content re-encrypted with the device key.</summary>
+public sealed record CachedMessage
+{
+    public required MessageId MessageId { get; init; }
+    public required DeviceId SenderDeviceId { get; init; }
+    public required MessageType Type { get; init; }
+    public required int Round { get; init; }
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Encrypted content bytes.")]
+    public required byte[] ContentEncrypted { get; init; }
+    public required DateTimeOffset ReceivedAt { get; init; }
 }

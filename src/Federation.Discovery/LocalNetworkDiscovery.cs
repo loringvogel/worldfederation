@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using Federation.Cryptography;
 using Federation.Identity;
+using Federation.Protocol;
 
 namespace Federation.Discovery;
 
@@ -12,7 +13,10 @@ namespace Federation.Discovery;
 /// UDP multicast peer discovery on 239.255.77.77:17777.
 /// Broadcasts a signed local peer record every 30 seconds and receives peer records from others on the same LAN.
 /// Validates signatures before yielding.
-/// Note: mDNS/DNS-SD would be preferable in production.
+///
+/// Room-scoped: beacons include the room IDs this node is seeking peers for.
+/// On receive, only yields a peer record if the beacon lists at least one room in common
+/// with the local node's rooms. Nodes in disjoint rooms never discover each other.
 /// </summary>
 public sealed class LocalNetworkDiscovery : IPeerDiscovery
 {
@@ -22,6 +26,7 @@ public sealed class LocalNetworkDiscovery : IPeerDiscovery
     private readonly PeerRecord _localRecord;
     private readonly IdentityService _identityService;
     private readonly byte[] _localPublicKey;
+    private readonly HashSet<RoomId> _localRoomIds;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -29,7 +34,7 @@ public sealed class LocalNetworkDiscovery : IPeerDiscovery
         PropertyNameCaseInsensitive = true,
     };
 
-    public LocalNetworkDiscovery(PeerRecord localRecord, IdentityService identityService, byte[] localPublicKey)
+    public LocalNetworkDiscovery(PeerRecord localRecord, IdentityService identityService, byte[] localPublicKey, IEnumerable<RoomId>? roomIds = null)
     {
         ArgumentNullException.ThrowIfNull(localRecord);
         ArgumentNullException.ThrowIfNull(identityService);
@@ -37,6 +42,7 @@ public sealed class LocalNetworkDiscovery : IPeerDiscovery
         _localRecord = localRecord;
         _identityService = identityService;
         _localPublicKey = localPublicKey;
+        _localRoomIds = new HashSet<RoomId>(roomIds ?? Enumerable.Empty<RoomId>());
     }
 
     public async IAsyncEnumerable<PeerRecord> DiscoverAsync([EnumeratorCancellation] CancellationToken ct)
@@ -61,11 +67,11 @@ public sealed class LocalNetworkDiscovery : IPeerDiscovery
                 yield break;
             }
 
-            PeerRecord? record;
+            DiscoveryBeacon? beacon;
             try
             {
                 var json = Encoding.UTF8.GetString(result.Buffer);
-                record = JsonSerializer.Deserialize<PeerRecord>(json, JsonOptions);
+                beacon = JsonSerializer.Deserialize<DiscoveryBeacon>(json, JsonOptions);
             }
 #pragma warning disable CA1031 // Malformed discovery packets should not crash the listener
             catch
@@ -74,11 +80,20 @@ public sealed class LocalNetworkDiscovery : IPeerDiscovery
             }
 #pragma warning restore CA1031
 
-            if (record is not null && record.DeviceId != _localRecord.DeviceId)
+            if (beacon?.PeerRecord is not null && beacon.PeerRecord.DeviceId != _localRecord.DeviceId)
             {
-                // In a real implementation, we would look up the peer's public key
-                // For now, yield the record; signature validation requires the peer's key
-                yield return record;
+                // Room-scoped filtering: only yield peers that share at least one room
+                if (_localRoomIds.Count > 0 && beacon.RoomIds is not null)
+                {
+                    var remoteRooms = beacon.RoomIds.Select(r => new RoomId(Guid.Parse(r))).ToHashSet();
+                    if (!remoteRooms.Overlaps(_localRoomIds))
+                    {
+                        // No rooms in common -- silently ignore this beacon
+                        continue;
+                    }
+                }
+
+                yield return beacon.PeerRecord;
             }
         }
     }
@@ -92,7 +107,12 @@ public sealed class LocalNetworkDiscovery : IPeerDiscovery
         {
             try
             {
-                var json = JsonSerializer.Serialize(_localRecord, JsonOptions);
+                var beacon = new DiscoveryBeacon
+                {
+                    PeerRecord = _localRecord,
+                    RoomIds = _localRoomIds.Select(r => r.Value.ToString()).ToArray(),
+                };
+                var json = JsonSerializer.Serialize(beacon, JsonOptions);
                 var bytes = Encoding.UTF8.GetBytes(json);
                 await sender.SendAsync(bytes, bytes.Length, endpoint).ConfigureAwait(false);
                 await Task.Delay(TimeSpan.FromSeconds(30), ct).ConfigureAwait(false);
@@ -109,4 +129,12 @@ public sealed class LocalNetworkDiscovery : IPeerDiscovery
 #pragma warning restore CA1031
         }
     }
+}
+
+/// <summary>Discovery beacon payload including room scoping.</summary>
+internal sealed record DiscoveryBeacon
+{
+    public PeerRecord? PeerRecord { get; init; }
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Serialized beacon payload.")]
+    public string[]? RoomIds { get; init; }
 }
