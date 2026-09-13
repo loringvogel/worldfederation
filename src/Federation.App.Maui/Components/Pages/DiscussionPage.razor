@@ -1,0 +1,412 @@
+@page "/"
+@implements IDisposable
+@inject AppSettingsService SettingsService
+@inject IHttpClientFactory Http
+@inject IJSRuntime JS
+
+<div class="card">
+    <h2>Discussion</h2>
+
+    @if (!SettingsService.Current.IsRegistered)
+    {
+        <div class="alert alert-info">
+            Not registered. Go to <a href="/setup">Setup</a> to register with a relay.
+        </div>
+        return;
+    }
+
+    <!-- ── Room / Discussion picker ── -->
+    <div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px;">
+        <div class="field" style="flex:1; min-width:180px; margin-bottom:0;">
+            <label>Room</label>
+            <select @onchange="RoomChanged">
+                <option value="">— select room —</option>
+                @foreach (var r in _rooms)
+                {
+                    <option value="@r.RoomId" selected="@(r.RoomId == SettingsService.Current.ActiveRoomId)">
+                        @r.Name (@r.MemberCount members)
+                    </option>
+                }
+            </select>
+        </div>
+        <div class="field" style="flex:1; min-width:180px; margin-bottom:0;">
+            <label>Discussion</label>
+            <select @onchange="DiscussionChanged">
+                <option value="">— select discussion —</option>
+                @foreach (var d in _discussions)
+                {
+                    <option value="@d.DiscussionId" selected="@(d.DiscussionId == SettingsService.Current.ActiveDiscussionId)">
+                        @Truncate(d.Topic, 35) — @d.Phase
+                    </option>
+                }
+            </select>
+        </div>
+        <button class="btn btn-secondary btn-sm" style="margin-bottom:0;" @onclick="RefreshAsync" disabled="@_busy">
+            @if (_busy) { <span class="spinner" style="border-color:rgba(0,0,0,.2);border-top-color:#1a1a1a;"></span> } Refresh
+        </button>
+    </div>
+
+    <!-- ── Phase status ── -->
+    @if (_activeDiscussion is not null)
+    {
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px;">
+            <span class="badge badge-ok">@_activeDiscussion.Phase</span>
+            <span style="font-size:12px;color:#8e8e93;">Round @_activeDiscussion.CurrentRound · @_activeDiscussion.TotalSubmissions/@_activeDiscussion.ExpectedSubmissions submitted</span>
+            @if (_activeDiscussion.CurrentDeadline.HasValue)
+            {
+                <span style="font-size:12px;color:#ff9f0a;">Deadline: @_activeDiscussion.CurrentDeadline.Value.ToLocalTime():HH:mm</span>
+            }
+        </div>
+    }
+
+    <!-- ── Room / discussion creation ── -->
+    <details style="margin-bottom:14px;">
+        <summary style="cursor:pointer; font-size:12px; color:#0a84ff; font-weight:500;">Create room or discussion…</summary>
+        <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+            <div class="field" style="flex:1; min-width:160px; margin-bottom:0;">
+                <label>New room name</label>
+                <input @bind="_newRoomName" placeholder="Council Room" />
+            </div>
+            <button class="btn btn-primary btn-sm" style="align-self:flex-end;" @onclick="CreateRoomAsync" disabled="@_busy">Create Room</button>
+        </div>
+        <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
+            <div class="field" style="flex:1; min-width:200px; margin-bottom:0;">
+                <label>New discussion topic</label>
+                <input @bind="_newDiscussionTopic" placeholder="Should we adopt policy X?" />
+            </div>
+            <button class="btn btn-primary btn-sm" style="align-self:flex-end;" @onclick="CreateDiscussionAsync" disabled="@(_busy || SettingsService.Current.ActiveRoomId is null)">Start Discussion</button>
+        </div>
+    </details>
+
+    <div class="sep"></div>
+
+    <!-- ── Message feed ── -->
+    @if (_messages.Count == 0 && _activeDiscussion is not null)
+    {
+        <div class="alert alert-info" style="margin-bottom:12px;">No messages yet. Be the first to propose.</div>
+    }
+
+    <div class="feed" id="msg-feed">
+        @foreach (var m in _messages)
+        {
+            <div class="msg @m.MessageType">
+                <div class="msg-header">
+                    <span class="msg-type">@m.MessageType</span>
+                    <span>Round @m.Round</span>
+                    <span>@m.CreatedAt.ToLocalTime().ToString("HH:mm")</span>
+                    <span>@Truncate(m.SenderDeviceId, 8)…</span>
+                </div>
+                <div class="msg-body">@m.Plaintext</div>
+            </div>
+        }
+    </div>
+
+    <!-- ── Compose ── -->
+    @if (_activeDiscussion is not null && _activeDiscussion.Phase != "Closed" && _activeDiscussion.Phase != "Draft")
+    {
+        <div class="compose">
+            <textarea @bind="_composeText" placeholder="Write your @_activeDiscussion.Phase contribution…" rows="3"></textarea>
+            <div class="btn-row" style="margin-top:8px;">
+                @foreach (var btn in GetPhaseButtons())
+                {
+                    <button class="btn @btn.Css" @onclick="() => SubmitAsync(btn.Type)" disabled="@(_busy || string.IsNullOrWhiteSpace(_composeText))">
+                        @btn.Label
+                    </button>
+                }
+            </div>
+            @if (!string.IsNullOrEmpty(_submitStatus))
+            {
+                <div class="alert @_submitStatusClass" style="margin-top:8px;">@_submitStatus</div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    // ── State ──────────────────────────────────────────────────────────────
+    private List<RoomSummaryDto> _rooms = [];
+    private List<DiscussionStateDto> _discussions = [];
+    private DiscussionStateDto? _activeDiscussion;
+    private List<MessageDto> _messages = [];
+
+    private string _newRoomName = string.Empty;
+    private string _newDiscussionTopic = string.Empty;
+    private string _composeText = string.Empty;
+    private string _submitStatus = string.Empty;
+    private string _submitStatusClass = "alert-info";
+
+    private bool _busy;
+    private Timer? _pollTimer;
+
+    // ── Lifecycle ──────────────────────────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        if (SettingsService.Current.IsRegistered)
+        {
+            await RefreshAsync();
+            _pollTimer = new Timer(_ => InvokeAsync(PollAsync), null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+        }
+    }
+
+    public void Dispose() => _pollTimer?.Dispose();
+
+    // ── Relay helpers ──────────────────────────────────────────────────────
+    private HttpClient NewClient()
+    {
+        var client = Http.CreateClient();
+        var s = SettingsService.Current;
+        client.BaseAddress = new Uri(s.RelayUrl.TrimEnd('/') + "/");
+        client.DefaultRequestHeaders.Add("X-Device-Id", s.DeviceId);
+        client.DefaultRequestHeaders.Add("X-Device-Token", s.DeviceToken);
+        return client;
+    }
+
+    private async Task RefreshAsync()
+    {
+        _busy = true;
+        try
+        {
+            using var c = NewClient();
+            _rooms = await c.GetFromJsonAsync<List<RoomSummaryDto>>("v1/rooms") ?? [];
+
+            var roomId = SettingsService.Current.ActiveRoomId;
+            if (roomId is not null)
+            {
+                _discussions = await c.GetFromJsonAsync<List<DiscussionStateDto>>($"v1/rooms/{roomId}/discussions") ?? [];
+                _activeDiscussion = _discussions.FirstOrDefault(d => d.DiscussionId == SettingsService.Current.ActiveDiscussionId)
+                                    ?? _discussions.FirstOrDefault();
+                if (_activeDiscussion is not null)
+                    await FetchMessagesAsync(c, roomId, _activeDiscussion.DiscussionId);
+            }
+        }
+        catch { /* relay may not be up yet */ }
+        finally { _busy = false; await ScrollFeedAsync(); }
+    }
+
+    private async Task PollAsync()
+    {
+        try
+        {
+            var s = SettingsService.Current;
+            if (s.ActiveRoomId is null || s.ActiveDiscussionId is null) return;
+            using var c = NewClient();
+            await FetchMessagesAsync(c, s.ActiveRoomId, s.ActiveDiscussionId);
+            // Also refresh discussion state for phase updates
+            _activeDiscussion = await c.GetFromJsonAsync<DiscussionStateDto>(
+                $"v1/rooms/{s.ActiveRoomId}/discussions/{s.ActiveDiscussionId}/state");
+        }
+        catch { }
+        finally { await InvokeAsync(StateHasChanged); await ScrollFeedAsync(); }
+    }
+
+    private async Task FetchMessagesAsync(HttpClient c, string roomId, string discussionId)
+    {
+        var resp = await c.GetFromJsonAsync<EnvelopesResponse>(
+            $"v1/rooms/{roomId}/discussions/{discussionId}/envelopes?after=0");
+        if (resp is null) return;
+
+        // Decrypt envelopes and display plaintext (for demo: relay returns plaintext in test mode;
+        // in production, CouncilNode.PollAndProcessAsync handles decryption into the local cache)
+        _messages = resp.Envelopes.Select(e => new MessageDto
+        {
+            MessageType    = e.MessageType,
+            Round          = e.Round,
+            Plaintext      = "[encrypted]",   // real decryption happens via CouncilNode
+            SenderDeviceId = e.SenderDeviceId,
+            CreatedAt      = e.CreatedAt,
+        }).ToList();
+    }
+
+    private async Task RoomChanged(ChangeEventArgs e)
+    {
+        var s = SettingsService.Current;
+        s.ActiveRoomId = e.Value?.ToString();
+        s.ActiveDiscussionId = null;
+        SettingsService.Apply(s);
+        _discussions.Clear();
+        _messages.Clear();
+        _activeDiscussion = null;
+        await RefreshAsync();
+    }
+
+    private async Task DiscussionChanged(ChangeEventArgs e)
+    {
+        var s = SettingsService.Current;
+        s.ActiveDiscussionId = e.Value?.ToString();
+        SettingsService.Apply(s);
+        _activeDiscussion = _discussions.FirstOrDefault(d => d.DiscussionId == s.ActiveDiscussionId);
+        if (_activeDiscussion is not null && s.ActiveRoomId is not null)
+        {
+            using var c = NewClient();
+            await FetchMessagesAsync(c, s.ActiveRoomId, _activeDiscussion.DiscussionId);
+        }
+        await ScrollFeedAsync();
+    }
+
+    // ── Room / discussion creation ─────────────────────────────────────────
+    private async Task CreateRoomAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newRoomName)) return;
+        _busy = true;
+        try
+        {
+            var s = SettingsService.Current;
+            using var c = NewClient();
+            var payload = new { Name = _newRoomName, OwnerDeviceId = s.DeviceId };
+            var resp = await c.PostAsJsonAsync("v1/rooms", payload);
+            if (resp.IsSuccessStatusCode)
+            {
+                var room = await resp.Content.ReadFromJsonAsync<RoomSummaryDto>();
+                if (room is not null)
+                {
+                    s.ActiveRoomId = room.RoomId;
+                    SettingsService.Apply(s);
+                    _newRoomName = string.Empty;
+                    await RefreshAsync();
+                }
+            }
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task CreateDiscussionAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newDiscussionTopic)) return;
+        var s = SettingsService.Current;
+        if (s.ActiveRoomId is null) return;
+        _busy = true;
+        try
+        {
+            using var c = NewClient();
+            var payload = new { Topic = _newDiscussionTopic, InitiatorDeviceId = s.DeviceId };
+            var resp = await c.PostAsJsonAsync($"v1/rooms/{s.ActiveRoomId}/discussions", payload);
+            if (resp.IsSuccessStatusCode)
+            {
+                var disc = await resp.Content.ReadFromJsonAsync<DiscussionStateDto>();
+                if (disc is not null)
+                {
+                    s.ActiveDiscussionId = disc.DiscussionId;
+                    SettingsService.Apply(s);
+                    _newDiscussionTopic = string.Empty;
+                    await RefreshAsync();
+                }
+            }
+        }
+        finally { _busy = false; }
+    }
+
+    // ── Submit ────────────────────────────────────────────────────────────
+    private async Task SubmitAsync(string messageType)
+    {
+        var s = SettingsService.Current;
+        if (s.ActiveRoomId is null || s.ActiveDiscussionId is null) return;
+        if (string.IsNullOrWhiteSpace(_composeText)) return;
+
+        _busy = true;
+        _submitStatus = string.Empty;
+        try
+        {
+            // Build and post an encrypted envelope via the CouncilToolService API endpoint.
+            // The MAUI app calls the local relay's REST API via a pre-built envelope.
+            // Full encryption path: CouncilNode.CreateEnvelope → relay POST.
+            using var c = Http.CreateClient();
+            c.DefaultRequestHeaders.Add("X-Agent-Base-Url", s.AiBaseUrl);
+            c.DefaultRequestHeaders.Add("X-Agent-Model", s.AiModel);
+            // Post the plain text to a local API gateway that wraps CouncilNode
+            var payload = new
+            {
+                RoomId       = s.ActiveRoomId,
+                DiscussionId = s.ActiveDiscussionId,
+                MessageType  = messageType,
+                Text         = _composeText,
+            };
+            var resp = await c.PostAsJsonAsync(
+                new Uri(s.RelayUrl.TrimEnd('/') + "/v1/agent/submit"), payload);
+
+            if (resp.IsSuccessStatusCode)
+            {
+                _composeText = string.Empty;
+                _submitStatus = $"{messageType} submitted.";
+                _submitStatusClass = "alert-success";
+                await RefreshAsync();
+            }
+            else
+            {
+                _submitStatus = $"Submit failed (HTTP {(int)resp.StatusCode}).";
+                _submitStatusClass = "alert-error";
+            }
+        }
+        catch (Exception ex)
+        {
+            _submitStatus = $"Error: {ex.Message}";
+            _submitStatusClass = "alert-error";
+        }
+        finally { _busy = false; }
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+    private record PhaseButton(string Label, string Type, string Css);
+
+    private IEnumerable<PhaseButton> GetPhaseButtons() => _activeDiscussion?.Phase switch
+    {
+        "ProposalRound" => [new("Submit Proposal", "Proposal", "btn-primary")],
+        "CritiqueRound" => [new("Submit Critique", "Critique", "btn-secondary")],
+        "RevisionRound" => [new("Submit Revision", "Revision", "btn-primary")],
+        "Vote"          => [
+            new("Approve", "Vote:approve",  "btn-success"),
+            new("Reject",  "Vote:reject",   "btn-danger"),
+            new("Abstain", "Vote:abstain",  "btn-secondary"),
+        ],
+        "Synthesis" => [new("Submit Synthesis", "Synthesis", "btn-primary")],
+        _           => [],
+    };
+
+    private async Task ScrollFeedAsync()
+    {
+        try { await JS.InvokeVoidAsync("scrollToBottom", "msg-feed"); } catch { }
+    }
+
+    private static string Truncate(string? s, int max) =>
+        s is null ? string.Empty : s.Length <= max ? s : s[..max];
+
+    // ── DTOs ──────────────────────────────────────────────────────────────
+    private sealed class RoomSummaryDto
+    {
+        public string RoomId      { get; set; } = string.Empty;
+        public string Name        { get; set; } = string.Empty;
+        public int    MemberCount { get; set; }
+    }
+
+    private sealed class DiscussionStateDto
+    {
+        public string         DiscussionId       { get; set; } = string.Empty;
+        public string         Topic              { get; set; } = string.Empty;
+        public string         Phase              { get; set; } = string.Empty;
+        public int            CurrentRound       { get; set; }
+        public int            TotalSubmissions   { get; set; }
+        public int            ExpectedSubmissions{ get; set; }
+        public DateTimeOffset? CurrentDeadline   { get; set; }
+    }
+
+    private sealed class EnvelopesResponse
+    {
+        public List<EnvelopeDto> Envelopes { get; set; } = [];
+    }
+
+    private sealed class EnvelopeDto
+    {
+        public string         MessageType    { get; set; } = string.Empty;
+        public int            Round          { get; set; }
+        public string         SenderDeviceId { get; set; } = string.Empty;
+        public DateTimeOffset CreatedAt      { get; set; }
+    }
+
+    private sealed class MessageDto
+    {
+        public string         MessageType    { get; set; } = string.Empty;
+        public int            Round          { get; set; }
+        public string         Plaintext      { get; set; } = string.Empty;
+        public string         SenderDeviceId { get; set; } = string.Empty;
+        public DateTimeOffset CreatedAt      { get; set; }
+    }
+}

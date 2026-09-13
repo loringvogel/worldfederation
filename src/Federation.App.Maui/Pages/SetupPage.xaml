@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Federation.App.Maui.Pages.SetupPage"
+             Title="Setup">
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="0">
+
+            <!-- Status banner -->
+            <Border x:Name="StatusBanner" IsVisible="False"
+                    BackgroundColor="{AppThemeBinding Light=#d1f7dd, Dark=#1a4a2a}"
+                    StrokeShape="RoundRectangle 8" Padding="12,10" Margin="0,0,0,14">
+                <Label x:Name="StatusLabel" FontSize="13" />
+            </Border>
+
+            <!-- ── Relay ── -->
+            <Label Text="RELAY" FontSize="11" FontAttributes="Bold" TextColor="Gray" Margin="0,0,0,4" />
+            <Border StrokeShape="RoundRectangle 10" BackgroundColor="{AppThemeBinding Light=White, Dark=#1c1c1e}"
+                    Padding="16,14" Margin="0,0,0,12">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Relay URL" FontSize="12" TextColor="Gray" />
+                    <Entry x:Name="RelayEntry" Placeholder="http://localhost:5000"
+                           Keyboard="Url" FontSize="14" />
+                    <Button Text="Test Connection" Clicked="OnTestRelayAsync"
+                            BackgroundColor="{AppThemeBinding Light=#e5e5ea, Dark=#3a3a3c}"
+                            TextColor="{AppThemeBinding Light=Black, Dark=White}"
+                            CornerRadius="8" FontSize="13" HeightRequest="36" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ── Registration ── -->
+            <Label Text="DEVICE REGISTRATION" FontSize="11" FontAttributes="Bold" TextColor="Gray" Margin="0,0,0,4" />
+            <Border StrokeShape="RoundRectangle 10" BackgroundColor="{AppThemeBinding Light=White, Dark=#1c1c1e}"
+                    Padding="16,14" Margin="0,0,0,12">
+                <VerticalStackLayout x:Name="RegStack" Spacing="10">
+                    <Label x:Name="RegStatusLabel" FontSize="13" TextColor="Gray" />
+                    <Label Text="Device / Agent name" FontSize="12" TextColor="Gray" />
+                    <Entry x:Name="DeviceNameEntry" Placeholder="My-Agent" FontSize="14" />
+                    <Button x:Name="RegButton" Text="Register with Relay" Clicked="OnRegisterAsync"
+                            BackgroundColor="#0a84ff" TextColor="White"
+                            CornerRadius="8" FontSize="14" HeightRequest="40" />
+                    <Button x:Name="UnregButton" Text="Unregister Device" Clicked="OnUnregister"
+                            IsVisible="False"
+                            BackgroundColor="{AppThemeBinding Light=#e5e5ea, Dark=#3a3a3c}"
+                            TextColor="{AppThemeBinding Light=Black, Dark=White}"
+                            CornerRadius="8" FontSize="13" HeightRequest="36" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ── AI Provider ── -->
+            <Label Text="AI PROVIDER" FontSize="11" FontAttributes="Bold" TextColor="Gray" Margin="0,0,0,4" />
+            <Border StrokeShape="RoundRectangle 10" BackgroundColor="{AppThemeBinding Light=White, Dark=#1c1c1e}"
+                    Padding="16,14" Margin="0,0,0,12">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Preset" FontSize="12" TextColor="Gray" />
+                    <Picker x:Name="ProviderPicker" Title="— choose preset —"
+                            SelectedIndexChanged="OnPresetChanged">
+                        <Picker.Items>
+                            <x:String>Ollama (local)</x:String>
+                            <x:String>LM Studio (local)</x:String>
+                            <x:String>OpenAI</x:String>
+                            <x:String>Custom</x:String>
+                        </Picker.Items>
+                    </Picker>
+                    <Label Text="Base URL" FontSize="12" TextColor="Gray" />
+                    <Entry x:Name="AiUrlEntry" Placeholder="http://localhost:11434"
+                           Keyboard="Url" FontSize="14" />
+                    <Label Text="API Key (leave blank for local models)" FontSize="12" TextColor="Gray" />
+                    <Entry x:Name="AiKeyEntry" Placeholder="sk-…" IsPassword="True" FontSize="14" />
+                    <Label Text="Model" FontSize="12" TextColor="Gray" />
+                    <Entry x:Name="AiModelEntry" Placeholder="llama3" FontSize="14" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ── Save ── -->
+            <Button Text="Save Settings" Clicked="OnSave"
+                    BackgroundColor="#0a84ff" TextColor="White"
+                    CornerRadius="8" FontSize="15" HeightRequest="44"
+                    Margin="0,4,0,30" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -1,0 +1,30 @@
+@inherits LayoutComponentBase
+@inject AppSettingsService Settings
+@inject NavigationManager Nav
+
+<div class="shell">
+    <div class="topbar">
+        <span class="brand">Agent Federation</span>
+
+        @if (Settings.Current.IsRegistered)
+        {
+            <span class="pill active">@Settings.Current.DeviceName</span>
+        }
+        else
+        {
+            <span class="pill warn">Not registered</span>
+        }
+
+        @if (Settings.Current.ActiveRoomId is not null)
+        {
+            <span class="pill">Room active</span>
+        }
+
+        <a class="nav-link" href="/">Discussion</a>
+        <a class="nav-link" href="/setup">Setup</a>
+    </div>
+
+    <div class="content">
+        @Body
+    </div>
+</div>

@@ -1,0 +1,227 @@
+@page "/setup"
+@inject AppSettingsService SettingsService
+@inject IHttpClientFactory Http
+
+<div class="card">
+    <h2>Node Setup</h2>
+
+    @if (!string.IsNullOrEmpty(_statusMessage))
+    {
+        <div class="alert @_statusClass">@_statusMessage</div>
+    }
+
+    <!-- ── Relay ── -->
+    <h3>Relay</h3>
+
+    <div class="field">
+        <label>Relay URL</label>
+        <input @bind="_relay" placeholder="http://localhost:5000" />
+        <div class="hint">The federation relay server. Run federation-relay locally or point to a shared relay.</div>
+    </div>
+
+    <div class="btn-row">
+        <button class="btn btn-secondary btn-sm" @onclick="CheckRelayAsync" disabled="@_busy">
+            @if (_busy) { <span class="spinner"></span> } Test connection
+        </button>
+    </div>
+
+    <div class="sep"></div>
+
+    <!-- ── Registration ── -->
+    <h3>Device Registration</h3>
+
+    @if (SettingsService.Current.IsRegistered)
+    {
+        <div class="alert alert-success">
+            Registered as <strong>@SettingsService.Current.DeviceName</strong><br />
+            Device ID: <code>@SettingsService.Current.DeviceId</code>
+        </div>
+        <div class="btn-row">
+            <button class="btn btn-secondary btn-sm" @onclick="Unregister">Unregister device</button>
+        </div>
+    }
+    else
+    {
+        <div class="field">
+            <label>Device / Agent name</label>
+            <input @bind="_deviceName" placeholder="Alice-Agent" />
+        </div>
+        <div class="btn-row">
+            <button class="btn btn-primary" @onclick="RegisterAsync" disabled="@_busy">
+                @if (_busy) { <span class="spinner"></span> } Register
+            </button>
+        </div>
+    }
+
+    <div class="sep"></div>
+
+    <!-- ── AI Provider ── -->
+    <h3>AI Provider</h3>
+
+    <div class="field">
+        <label>Provider preset</label>
+        <select @onchange="ApplyPreset">
+            <option value="">— choose —</option>
+            <option value="ollama">Ollama (local)</option>
+            <option value="lmstudio">LM Studio (local)</option>
+            <option value="openai">OpenAI</option>
+            <option value="custom">Custom</option>
+        </select>
+    </div>
+
+    <div class="field">
+        <label>Base URL</label>
+        <input @bind="_aiUrl" placeholder="http://localhost:11434" />
+        <div class="hint">OpenAI-compatible endpoint. No /v1/chat/completions suffix needed.</div>
+    </div>
+
+    <div class="field">
+        <label>API Key <span style="color:#8e8e93">(leave blank for local models)</span></label>
+        <input type="password" @bind="_aiKey" placeholder="sk-…" />
+    </div>
+
+    <div class="field">
+        <label>Model</label>
+        <input @bind="_aiModel" placeholder="llama3" />
+        <div class="hint">Examples: llama3, mistral, gpt-4o, claude-3-5-sonnet-20241022</div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="btn-row">
+        <button class="btn btn-primary" @onclick="Save" disabled="@_busy">Save settings</button>
+    </div>
+</div>
+
+@code {
+    private string _relay = string.Empty;
+    private string _deviceName = "My-Agent";
+    private string _aiUrl = string.Empty;
+    private string _aiKey = string.Empty;
+    private string _aiModel = string.Empty;
+
+    private bool _busy;
+    private string _statusMessage = string.Empty;
+    private string _statusClass = "alert-info";
+
+    protected override void OnInitialized()
+    {
+        var s = SettingsService.Current;
+        _relay     = s.RelayUrl;
+        _aiUrl     = s.AiBaseUrl;
+        _aiKey     = s.AiApiKey;
+        _aiModel   = s.AiModel;
+    }
+
+    private void ApplyPreset(ChangeEventArgs e)
+    {
+        switch (e.Value?.ToString())
+        {
+            case "ollama":
+                _aiUrl   = "http://localhost:11434";
+                _aiKey   = string.Empty;
+                _aiModel = "llama3";
+                break;
+            case "lmstudio":
+                _aiUrl   = "http://localhost:1234";
+                _aiKey   = string.Empty;
+                _aiModel = "local-model";
+                break;
+            case "openai":
+                _aiUrl   = "https://api.openai.com";
+                _aiModel = "gpt-4o";
+                break;
+        }
+    }
+
+    private async Task CheckRelayAsync()
+    {
+        _busy = true;
+        _statusMessage = string.Empty;
+        try
+        {
+            using var client = Http.CreateClient();
+            var resp = await client.GetAsync(new Uri(_relay.TrimEnd('/') + "/health"));
+            if (resp.IsSuccessStatusCode)
+                SetStatus("Relay reachable.", "alert-success");
+            else
+                SetStatus($"Relay returned HTTP {(int)resp.StatusCode}.", "alert-error");
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"Cannot reach relay: {ex.Message}", "alert-error");
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task RegisterAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_relay)) { SetStatus("Enter relay URL first.", "alert-error"); return; }
+        if (string.IsNullOrWhiteSpace(_deviceName)) { SetStatus("Enter a device name.", "alert-error"); return; }
+
+        _busy = true;
+        _statusMessage = string.Empty;
+        try
+        {
+            Save(); // persist relay URL first so RelayClient uses it
+            using var client = Http.CreateClient();
+            var payload = new { DisplayName = _deviceName };
+            var resp = await client.PostAsJsonAsync(new Uri(_relay.TrimEnd('/') + "/v1/devices/registrations"), payload);
+            if (!resp.IsSuccessStatusCode)
+            {
+                SetStatus($"Registration failed (HTTP {(int)resp.StatusCode}).", "alert-error");
+                return;
+            }
+            var reg = await resp.Content.ReadFromJsonAsync<DeviceRegResponse>();
+            if (reg is null) { SetStatus("Invalid relay response.", "alert-error"); return; }
+
+            var s = SettingsService.Current;
+            s.DeviceId    = reg.DeviceId;
+            s.DeviceToken = reg.DeviceToken;
+            s.DeviceName  = _deviceName;
+            SettingsService.Apply(s);
+
+            SetStatus($"Registered as {_deviceName}. Device ID: {reg.DeviceId}", "alert-success");
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"Error: {ex.Message}", "alert-error");
+        }
+        finally { _busy = false; }
+    }
+
+    private void Unregister()
+    {
+        var s = SettingsService.Current;
+        s.DeviceId    = null;
+        s.DeviceToken = null;
+        s.DeviceName  = null;
+        s.ActiveRoomId = null;
+        s.ActiveDiscussionId = null;
+        SettingsService.Apply(s);
+        SetStatus("Device unregistered. Re-register to participate.", "alert-info");
+    }
+
+    private void Save()
+    {
+        var s = SettingsService.Current;
+        s.RelayUrl  = _relay.Trim();
+        s.AiBaseUrl = _aiUrl.Trim();
+        s.AiApiKey  = _aiKey.Trim();
+        s.AiModel   = _aiModel.Trim();
+        SettingsService.Apply(s);
+        SetStatus("Settings saved.", "alert-success");
+    }
+
+    private void SetStatus(string msg, string cls)
+    {
+        _statusMessage = msg;
+        _statusClass   = cls;
+    }
+
+    private sealed class DeviceRegResponse
+    {
+        public string DeviceId { get; set; } = string.Empty;
+        public string DeviceToken { get; set; } = string.Empty;
+    }
+}

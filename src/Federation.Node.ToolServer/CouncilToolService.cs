@@ -141,18 +141,9 @@ public sealed class CouncilToolService
 
     private async Task<IReadOnlyList<DiscussionState>> GetDiscussionsInRoomAsync(RoomId roomId, CancellationToken ct)
     {
-        // Phase 1: get all discussions from the relay and filter by room
-        // In a real implementation, there would be a dedicated endpoint for this
-        var url = $"{_node.Options.RelayBaseUrl}/v1/rooms";
-        var rooms = await _httpClient.GetFromJsonAsync<IReadOnlyList<RoomSummary>>(new Uri(url), JsonOptions, ct).ConfigureAwait(false);
-
-        // For Phase 1, return empty if room not found; real impl would have a proper endpoint
-        if (rooms is null || !rooms.Any(r => r.RoomId == roomId))
-        {
-            return [];
-        }
-
-        return [];
+        var url = $"{_node.Options.RelayBaseUrl}/v1/rooms/{roomId.Value}/discussions";
+        var discussions = await _httpClient.GetFromJsonAsync<IReadOnlyList<DiscussionState>>(new Uri(url), JsonOptions, ct).ConfigureAwait(false);
+        return discussions ?? [];
     }
 }
 

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:pages="clr-namespace:Federation.App.Maui.Pages"
+       x:Class="Federation.App.Maui.AppShell"
+       Title="Agent Federation">
+
+    <TabBar>
+        <Tab Title="Discussion" Icon="discussion.png">
+            <ShellContent ContentTemplate="{DataTemplate pages:DiscussionPage}" Route="discussion" />
+        </Tab>
+        <Tab Title="Setup" Icon="settings.png">
+            <ShellContent ContentTemplate="{DataTemplate pages:SetupPage}" Route="setup" />
+        </Tab>
+    </TabBar>
+
+</Shell>

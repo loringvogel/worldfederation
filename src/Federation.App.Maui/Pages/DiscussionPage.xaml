@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:Federation.App.Maui.Pages;assembly=Federation.App.Maui"
+             x:Class="Federation.App.Maui.Pages.DiscussionPage"
+             Title="Discussion">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="12" RowSpacing="8">
+
+        <!-- ── Top status row ── -->
+        <Border Grid.Row="0" StrokeShape="RoundRectangle 8"
+                BackgroundColor="{AppThemeBinding Light=#1c1c1e, Dark=#1c1c1e}"
+                Padding="12,8">
+            <HorizontalStackLayout Spacing="10">
+                <Label x:Name="PhaseLabel" Text="Not registered" TextColor="#ebebf5"
+                       FontSize="13" FontAttributes="Bold" VerticalOptions="Center" />
+                <Label x:Name="RoundLabel" Text="" TextColor="#8e8e93"
+                       FontSize="12" VerticalOptions="Center" />
+                <Label x:Name="SubmissionsLabel" Text="" TextColor="#8e8e93"
+                       FontSize="12" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+        </Border>
+
+        <!-- ── Room / Discussion pickers ── -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,*,Auto" ColumnSpacing="8">
+            <Picker x:Name="RoomPicker" Grid.Column="0" Title="Select room"
+                    SelectedIndexChanged="OnRoomChanged" />
+            <Picker x:Name="DiscPicker" Grid.Column="1" Title="Select discussion"
+                    SelectedIndexChanged="OnDiscussionChanged" />
+            <Button Grid.Column="2" Text="Refresh" Clicked="OnRefreshAsync"
+                    BackgroundColor="{AppThemeBinding Light=#e5e5ea, Dark=#3a3a3c}"
+                    TextColor="{AppThemeBinding Light=Black, Dark=White}"
+                    CornerRadius="8" FontSize="12" HeightRequest="38" WidthRequest="72" />
+        </Grid>
+
+        <!-- ── Message feed ── -->
+        <CollectionView x:Name="MessageFeed" Grid.Row="2" ItemsSource="{Binding Messages}">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="local:MessageViewModel">
+                    <Border StrokeShape="RoundRectangle 10" Margin="0,4,0,0"
+                            BackgroundColor="{AppThemeBinding Light=#f5f5f5, Dark=#2c2c2e}"
+                            Padding="12,10">
+                        <VerticalStackLayout Spacing="4">
+                            <HorizontalStackLayout Spacing="8">
+                                <Label Text="{Binding TypeLabel}" FontSize="12"
+                                       FontAttributes="Bold" TextColor="{Binding TypeColor}" />
+                                <Label Text="{Binding RoundLabel}" FontSize="11" TextColor="Gray" />
+                                <Label Text="{Binding TimeLabel}"  FontSize="11" TextColor="Gray" />
+                                <Label Text="{Binding ShortSender}" FontSize="11" TextColor="Gray" />
+                            </HorizontalStackLayout>
+                            <Label Text="{Binding Plaintext}" FontSize="14"
+                                   LineBreakMode="WordWrap" />
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+            <CollectionView.EmptyView>
+                <Label Text="No messages yet." TextColor="Gray" FontSize="14"
+                       HorizontalOptions="Center" VerticalOptions="Center" Margin="0,40" />
+            </CollectionView.EmptyView>
+        </CollectionView>
+
+        <!-- ── Compose ── -->
+        <Border Grid.Row="3" StrokeShape="RoundRectangle 10"
+                BackgroundColor="{AppThemeBinding Light=White, Dark=#1c1c1e}"
+                Padding="12,10">
+            <VerticalStackLayout Spacing="8">
+                <Editor x:Name="ComposeEditor" Placeholder="Write your contribution…"
+                        MinimumHeightRequest="60" MaximumHeightRequest="100"
+                        AutoSize="TextChanges" FontSize="14" />
+                <HorizontalStackLayout x:Name="ActionButtons" Spacing="8" />
+            </VerticalStackLayout>
+        </Border>
+
+    </Grid>
+</ContentPage>

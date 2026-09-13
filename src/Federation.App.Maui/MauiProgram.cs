@@ -1,6 +1,4 @@
-// Phase 4: Add Blazor Hybrid pages for room management, discussion viewer, and invitation flow.
 using Microsoft.Extensions.Logging;
-using Federation.Node;
 
 namespace Federation.App.Maui;
 
@@ -16,16 +14,19 @@ public static class MauiProgram
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
             });
 
-        builder.Services.AddMauiBlazorWebView();
-        builder.Services.AddLogging(logging => logging.AddDebug());
+#if DEBUG
+        builder.Logging.AddDebug();
+#endif
 
-        // Register federation node services
-        builder.Services.AddSingleton<CouncilNodeOptions>(_ => new CouncilNodeOptions
-        {
-            RelayUrls = [],
-            DeviceDisplayName = "MAUI Node",
-            PollInterval = TimeSpan.FromSeconds(10),
-        });
+        // Settings shared across all pages
+        builder.Services.AddSingleton<AppSettingsService>();
+
+        // HttpClient for relay REST calls
+        builder.Services.AddHttpClient();
+
+        // Pages
+        builder.Services.AddTransient<Pages.SetupPage>();
+        builder.Services.AddTransient<Pages.DiscussionPage>();
 
         return builder.Build();
     }
