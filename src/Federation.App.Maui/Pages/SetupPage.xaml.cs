@@ -14,14 +14,17 @@ public partial class SetupPage : ContentPage
         _http = http;
     }
 
-    protected override void OnAppearing()
+    protected override async void OnAppearing()
     {
         base.OnAppearing();
+        // Ensure secrets are loaded from DPAPI / Keychain before populating the form.
+        await _settings.InitializeAsync().ConfigureAwait(true);
+
         var s = _settings.Current;
-        RelayEntry.Text     = s.RelayUrl;
-        AiUrlEntry.Text     = s.AiBaseUrl;
-        AiKeyEntry.Text     = s.AiApiKey;
-        AiModelEntry.Text   = s.AiModel;
+        RelayEntry.Text      = s.RelayUrl;
+        AiUrlEntry.Text      = s.AiBaseUrl;
+        AiKeyEntry.Text      = s.AiApiKey;
+        AiModelEntry.Text    = s.AiModel;
         DeviceNameEntry.Text = s.DeviceName ?? "My-Agent";
         RefreshRegistrationUI(s);
     }
@@ -30,18 +33,18 @@ public partial class SetupPage : ContentPage
     {
         if (s.IsRegistered)
         {
-            RegStatusLabel.Text = $"Registered as {s.DeviceName}\nDevice ID: {s.DeviceId}";
+            RegStatusLabel.Text      = $"Registered as {s.DeviceName}\nDevice ID: {s.DeviceId}";
             RegStatusLabel.TextColor = Colors.Green;
             DeviceNameEntry.IsEnabled = false;
-            RegButton.IsVisible = false;
+            RegButton.IsVisible   = false;
             UnregButton.IsVisible = true;
         }
         else
         {
-            RegStatusLabel.Text = "Not registered.";
+            RegStatusLabel.Text      = "Not registered.";
             RegStatusLabel.TextColor = Colors.Gray;
             DeviceNameEntry.IsEnabled = true;
-            RegButton.IsVisible = true;
+            RegButton.IsVisible   = true;
             UnregButton.IsVisible = false;
         }
     }
@@ -90,13 +93,14 @@ public partial class SetupPage : ContentPage
             var reg = await resp.Content.ReadFromJsonAsync<DeviceRegResponse>();
             if (reg is null) { ShowStatus("Invalid relay response.", false); return; }
 
+            // DeviceToken is a secret — Apply() stores it in DPAPI/Keychain, not JSON.
             s.DeviceId    = reg.DeviceId;
             s.DeviceToken = reg.DeviceToken;
             s.DeviceName  = name;
             _settings.Apply(s);
 
             RefreshRegistrationUI(s);
-            ShowStatus($"Registered as {name}.", true);
+            ShowStatus($"Registered as {name}. Token secured in {SecureStorePlatformName()}.", true);
         }
         catch (Exception ex)
         {
@@ -111,14 +115,18 @@ public partial class SetupPage : ContentPage
     private void OnUnregister(object? sender, EventArgs e)
     {
         var s = _settings.Current;
-        s.DeviceId    = null;
-        s.DeviceToken = null;
-        s.DeviceName  = null;
-        s.ActiveRoomId = null;
+        s.DeviceId           = null;
+        s.DeviceToken        = null;
+        s.DeviceName         = null;
+        s.ActiveRoomId       = null;
         s.ActiveDiscussionId = null;
         _settings.Apply(s);
+
+        // Remove secrets from the platform secure store.
+        AppSettingsService.ClearSecrets();
+
         RefreshRegistrationUI(s);
-        ShowStatus("Device unregistered.", true);
+        ShowStatus("Device unregistered. Secrets cleared from secure store.", true);
     }
 
     private void OnPresetChanged(object? sender, EventArgs e)
@@ -145,13 +153,22 @@ public partial class SetupPage : ContentPage
     private void OnSave(object? sender, EventArgs e)
     {
         var s = _settings.Current;
-        s.RelayUrl  = RelayEntry.Text?.Trim()    ?? s.RelayUrl;
-        s.AiBaseUrl = AiUrlEntry.Text?.Trim()    ?? s.AiBaseUrl;
-        s.AiApiKey  = AiKeyEntry.Text?.Trim()    ?? s.AiApiKey;
-        s.AiModel   = AiModelEntry.Text?.Trim()  ?? s.AiModel;
+        s.RelayUrl  = RelayEntry.Text?.Trim()   ?? s.RelayUrl;
+        s.AiBaseUrl = AiUrlEntry.Text?.Trim()   ?? s.AiBaseUrl;
+        s.AiApiKey  = AiKeyEntry.Text?.Trim()   ?? s.AiApiKey;   // goes to Keychain/DPAPI
+        s.AiModel   = AiModelEntry.Text?.Trim() ?? s.AiModel;
         _settings.Apply(s);
-        ShowStatus("Settings saved.", true);
+        ShowStatus($"Settings saved. API key secured in {SecureStorePlatformName()}.", true);
     }
+
+    private static string SecureStorePlatformName() =>
+#if WINDOWS
+        "Windows DPAPI";
+#elif MACCATALYST
+        "macOS Keychain";
+#else
+        "secure storage";
+#endif
 
     private void ShowStatus(string message, bool success)
     {

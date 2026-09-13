@@ -29,6 +29,9 @@ public partial class DiscussionPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        // Ensure DeviceToken is loaded from DPAPI/Keychain before any relay call.
+        await _settings.InitializeAsync().ConfigureAwait(true);
+
         if (!_settings.Current.IsRegistered)
         {
             PhaseLabel.Text = "Not registered — go to Setup tab.";
