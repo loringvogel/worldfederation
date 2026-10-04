@@ -125,6 +125,8 @@ public static class Program
                 return PrintStatus(configPath);
             case "emergency-stop":
                 return await EmergencyStopAsync(configPath, relayOverride).ConfigureAwait(false);
+            case "provision-client":
+                return await ProvisionClientAsync(args, configPath, relayOverride).ConfigureAwait(false);
             case "help":
                 PrintHelp();
                 return 0;
@@ -682,6 +684,78 @@ public static class Program
         return 0;
     }
 
+    // ───────────────────── provision-client ─────────────────────
+
+    private static async Task<int> ProvisionClientAsync(string[] args, string configPath, string? relayOverride)
+    {
+        var relay = GetArg(args, "--relay") ?? relayOverride;
+        var name  = GetArg(args, "--name");
+        var mcpUrl = GetArg(args, "--mcp-url");
+
+        if (relay is null)
+        {
+            Console.Error.WriteLine("Usage: provision-client --name <name> --relay <url> [--mcp-url <url>]");
+            Console.Error.WriteLine("  --relay    Relay URL (e.g. https://relay.example.com)");
+            Console.Error.WriteLine("  --name     Client display name (e.g. Alice)");
+            Console.Error.WriteLine("  --mcp-url  Public URL of federation-remote-mcp (default: relay host on port 5002)");
+            return 1;
+        }
+
+        name ??= "Client";
+
+        // Derive default MCP URL from relay URL (same host, port 5002)
+        if (mcpUrl is null)
+        {
+            try
+            {
+                var relayUri = new Uri(relay.TrimEnd('/'));
+                mcpUrl = $"{relayUri.Scheme}://{relayUri.Host}:5002";
+            }
+            catch (UriFormatException)
+            {
+                Console.Error.WriteLine("Could not derive MCP URL from relay URL. Pass --mcp-url explicitly.");
+                return 1;
+            }
+        }
+
+        using var client = new RelayClient(relay);
+        if (!await client.HealthCheckAsync().ConfigureAwait(false))
+        {
+            Console.Error.WriteLine($"Relay unreachable at {relay}");
+            return 1;
+        }
+
+        var reg = await client.RegisterDeviceAsync(name).ConfigureAwait(false);
+        if (reg is null)
+        {
+            Console.Error.WriteLine("Registration failed.");
+            return 1;
+        }
+
+        Console.WriteLine();
+        Console.WriteLine($"Client \"{name}\" provisioned successfully.");
+        Console.WriteLine();
+        Console.WriteLine("──────────────────────────────────────────────────────────────");
+        Console.WriteLine("  Paste the following into claude.ai → Settings → Integrations");
+        Console.WriteLine("  → Add MCP Server:");
+        Console.WriteLine("──────────────────────────────────────────────────────────────");
+        Console.WriteLine();
+        Console.WriteLine($"  MCP Server URL : {mcpUrl.TrimEnd('/')}/mcp");
+        Console.WriteLine($"  X-Device-Id    : {reg.DeviceId}");
+        Console.WriteLine($"  X-Device-Token : {reg.DeviceToken}");
+        Console.WriteLine();
+        Console.WriteLine("──────────────────────────────────────────────────────────────");
+        Console.WriteLine();
+        Console.WriteLine($"  Device ID (share this with room owners to invite {name}):");
+        Console.WriteLine($"  {reg.DeviceId}");
+        Console.WriteLine();
+        Console.WriteLine($"  To invite {name} to a room, run:");
+        Console.WriteLine($"    federation invite {reg.DeviceId} --role Participant");
+        Console.WriteLine();
+
+        return 0;
+    }
+
     // ───────────────────── help ─────────────────────
 
     private static void PrintHelp()
@@ -707,6 +781,7 @@ public static class Program
               synthesize <text>                       Submit a synthesis
               status                                  Show node status
               emergency-stop                          Revoke device and wipe keys
+              provision-client --name <n> --relay <u> Register a claude.ai client and print MCP settings
               help                                    Show this help
 
             Global flags:

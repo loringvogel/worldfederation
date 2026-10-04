@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "Federation.Node.RemoteMcp": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:59612;http://localhost:59614"
+    }
+  }
+}

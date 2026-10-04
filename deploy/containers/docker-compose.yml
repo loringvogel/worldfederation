@@ -19,5 +19,25 @@ services:
       timeout: 5s
       retries: 3
 
+  remote-mcp:
+    build:
+      context: ../..
+      dockerfile: deploy/containers/Dockerfile.remote-mcp
+    image: federation-remote-mcp:latest
+    container_name: federation-remote-mcp
+    ports:
+      - "5002:5002"
+    restart: unless-stopped
+    environment:
+      - FEDERATION_RELAY_URL=http://relay:5000
+    depends_on:
+      relay:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5002/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
 volumes:
   relay-data:
