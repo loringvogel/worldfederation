@@ -13,6 +13,7 @@ COPY src/Federation.Identity/Federation.Identity.csproj             src/Federati
 COPY src/Federation.Storage/Federation.Storage.csproj               src/Federation.Storage/
 COPY src/Federation.Sync/Federation.Sync.csproj                     src/Federation.Sync/
 COPY src/Federation.Infrastructure/Federation.Infrastructure.csproj src/Federation.Infrastructure/
+COPY src/Federation.Storage.AzureTables/Federation.Storage.AzureTables.csproj src/Federation.Storage.AzureTables/
 COPY src/Federation.Relay/Federation.Relay.csproj                   src/Federation.Relay/
 
 RUN dotnet restore src/Federation.Relay/Federation.Relay.csproj
