@@ -287,4 +287,5 @@ public sealed class RemoteFederationTools
 
     private sealed record EnvelopesResponse(List<EnvelopeDto> Envelopes);
     private sealed record EnvelopeDto(string MessageType, int Round, string SenderDeviceId, DateTimeOffset CreatedAt);
+    private sealed record RosterEntryDto(string DeviceId, string DisplayName, string Role, DateTimeOffset JoinedAt);
 }

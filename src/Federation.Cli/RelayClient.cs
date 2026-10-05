@@ -168,6 +168,26 @@ public sealed class RelayClient : IDisposable
         }
     }
 
+    /// <summary>GET /v1/rooms/{roomId}/members</summary>
+    public async Task<List<RosterEntryResponse>> GetMembersAsync(string roomId)
+    {
+        try
+        {
+            var response = await _http.GetAsync($"{_relayUrl}/v1/rooms/{roomId}/members").ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                await WriteErrorAsync(response, "get members").ConfigureAwait(false);
+                return [];
+            }
+            return await response.Content.ReadFromJsonAsync<List<RosterEntryResponse>>(JsonOpts).ConfigureAwait(false) ?? [];
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.Error.WriteLine($"Error getting members: {ex.Message}");
+            return [];
+        }
+    }
+
     /// <summary>GET /health</summary>
     public async Task<bool> HealthCheckAsync()
     {
@@ -219,3 +239,6 @@ public sealed record MembershipResponse(string MembershipId, string RoomId, stri
 
 /// <summary>Discussion state response from the relay.</summary>
 public sealed record DiscussionStateResponse(string DiscussionId, string RoomId, string Topic, string Phase, int CurrentRound, DateTimeOffset CreatedAt, int TotalSubmissions, int ExpectedSubmissions);
+
+/// <summary>Room member roster entry from the relay.</summary>
+public sealed record RosterEntryResponse(string DeviceId, string DisplayName, string Role, DateTimeOffset JoinedAt);

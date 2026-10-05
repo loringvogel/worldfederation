@@ -9,6 +9,26 @@ public static class MembershipRoutes
     {
         var group = endpoints.MapGroup("/v1/rooms/{roomId}");
 
+        group.MapGet("/members", async (
+            Guid roomId,
+            IMembershipRepository memberships,
+            IDeviceRepository devices) =>
+        {
+            var rid = new RoomId(roomId);
+            var members = await memberships.GetActiveMembershipsAsync(rid).ConfigureAwait(false);
+            var roster = new List<RosterEntry>();
+            foreach (var m in members)
+            {
+                var device = await devices.GetDeviceAsync(m.DeviceId).ConfigureAwait(false);
+                roster.Add(new RosterEntry(
+                    m.DeviceId.Value.ToString(),
+                    device?.DisplayName ?? "(unknown)",
+                    m.Role.ToString(),
+                    m.JoinedAt));
+            }
+            return Results.Ok(roster);
+        });
+
         group.MapPost("/invitations", async (
             Guid roomId,
             [FromBody] InvitationRequest request,
@@ -54,6 +74,8 @@ public static class MembershipRoutes
         return group;
     }
 }
+
+public sealed record RosterEntry(string DeviceId, string DisplayName, string Role, DateTimeOffset JoinedAt);
 
 public sealed record InvitationRequest
 {

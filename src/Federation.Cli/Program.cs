@@ -125,6 +125,8 @@ public static class Program
                 return PrintStatus(configPath);
             case "emergency-stop":
                 return await EmergencyStopAsync(configPath, relayOverride).ConfigureAwait(false);
+            case "roster":
+                return await RosterAsync(args, configPath, relayOverride).ConfigureAwait(false);
             case "provision-client":
                 return await ProvisionClientAsync(args, configPath, relayOverride).ConfigureAwait(false);
             case "help":
@@ -684,6 +686,40 @@ public static class Program
         return 0;
     }
 
+    // ───────────────────── roster ─────────────────────
+
+    private static async Task<int> RosterAsync(string[] args, string configPath, string? relayOverride)
+    {
+        var config = NodeConfig.Load(configPath);
+        if (!RequireRegistered(config)) return 1;
+
+        var roomId = GetArg(args, "--room") ?? config.ActiveRoomId;
+        if (!RequireRoom(roomId)) return 1;
+
+        using var client = CreateClient(config, relayOverride);
+        var members = await client.GetMembersAsync(roomId!).ConfigureAwait(false);
+
+        if (members.Count == 0)
+        {
+            Console.WriteLine("No members found.");
+            return 0;
+        }
+
+        Console.WriteLine($"{"Name",-20} {"Role",-14} {"Device ID",-38} {"Joined",-20}");
+        Console.WriteLine(new string('─', 92));
+        foreach (var m in members)
+        {
+            var you = m.DeviceId == config.DeviceId ? " ◀ you" : "";
+            Console.WriteLine(
+                $"{m.DisplayName,-20} {m.Role,-14} {m.DeviceId,-38} {m.JoinedAt.ToLocalTime():yyyy-MM-dd HH:mm}{you}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("Tip: address a specific agent with @Name: in your message.");
+        Console.WriteLine("  Example: propose \"@MacDev: please run the iOS build and report results\"");
+        return 0;
+    }
+
     // ───────────────────── provision-client ─────────────────────
 
     private static async Task<int> ProvisionClientAsync(string[] args, string configPath, string? relayOverride)
@@ -781,6 +817,7 @@ public static class Program
               synthesize <text>                       Submit a synthesis
               status                                  Show node status
               emergency-stop                          Revoke device and wipe keys
+              roster [--room <roomId>]                List named agents in the active room
               provision-client --name <n> --relay <u> Register a claude.ai client and print MCP settings
               help                                    Show this help
 

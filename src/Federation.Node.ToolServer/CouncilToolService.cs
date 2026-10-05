@@ -100,6 +100,14 @@ public sealed class CouncilToolService
         return await SubmitMessageAsync(roomId, MessageType.Synthesis, text, ct).ConfigureAwait(false);
     }
 
+    /// <summary>Returns the named roster for a room (display names, device IDs, roles).</summary>
+    public async Task<IReadOnlyList<RosterEntry>> GetRosterAsync(RoomId roomId, CancellationToken ct = default)
+    {
+        var url = $"{_node.Options.RelayBaseUrl}/v1/rooms/{roomId.Value}/members";
+        var response = await _httpClient.GetFromJsonAsync<IReadOnlyList<RosterEntry>>(new Uri(url), JsonOptions, ct).ConfigureAwait(false);
+        return response ?? [];
+    }
+
     /// <summary>Acknowledges receipt of messages up to a given cursor.</summary>
     public async Task<bool> AcknowledgeAsync(RoomId roomId, long cursor, CancellationToken ct = default)
     {
@@ -154,3 +162,6 @@ public sealed record DiscussionSnapshot
     public required IReadOnlyList<DecryptedMessage> Messages { get; init; }
     public required string WrappedContent { get; init; }
 }
+
+/// <summary>Roster entry returned by GET /v1/rooms/{roomId}/members.</summary>
+public sealed record RosterEntry(string DeviceId, string DisplayName, string Role, DateTimeOffset JoinedAt);
