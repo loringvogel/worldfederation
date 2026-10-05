@@ -21,7 +21,8 @@ public static class DeviceRoutes
                 registration.DeviceId.Value.ToString("D"),
                 registration.DisplayName,
                 registration.DeviceToken,
-                registration.RegisteredAt);
+                registration.RegisteredAt,
+                publicKey);
             return Results.Created($"/v1/devices/{registration.DeviceId}", response);
         });
 
@@ -72,4 +73,6 @@ public sealed record RegisterDeviceRequest
 }
 
 /// <summary>Wire response for device registration — uses plain strings to avoid strong-ID serialization issues.</summary>
-public sealed record DeviceRegistrationApiResponse(string DeviceId, string DisplayName, string DeviceToken, DateTimeOffset RegisteredAt);
+#pragma warning disable CA1819 // DTO: byte[] needed for base64 wire serialization of public key
+public sealed record DeviceRegistrationApiResponse(string DeviceId, string DisplayName, string DeviceToken, DateTimeOffset RegisteredAt, byte[] PublicKey);
+#pragma warning restore CA1819

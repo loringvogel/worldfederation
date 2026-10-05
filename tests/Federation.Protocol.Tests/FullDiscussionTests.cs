@@ -27,6 +27,7 @@ public sealed class FullDiscussionTests : IClassFixture<WebApplicationFactory<Pr
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true,
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
     };
 
     public FullDiscussionTests(WebApplicationFactory<Program> factory)
