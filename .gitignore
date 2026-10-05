@@ -482,3 +482,7 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Published self-contained executables (large, regenerate with: dotnet publish)
+tools/win-x64/
+tools/osx-arm64/
