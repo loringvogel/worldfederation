@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <NoWarn>$(NoWarn);CA1031;CA2007;CA1056;CA1062;CA2227;CA1869;CA1001;CA1305</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Azure.Data.Tables" Version="12.*" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Federation.Protocol\Federation.Protocol.csproj" />
+  </ItemGroup>
+</Project>

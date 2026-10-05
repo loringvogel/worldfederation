@@ -9,6 +9,7 @@
     <ProjectReference Include="..\Federation.Deliberation\Federation.Deliberation.csproj" />
     <ProjectReference Include="..\Federation.Cryptography\Federation.Cryptography.csproj" />
     <ProjectReference Include="..\Federation.Storage\Federation.Storage.csproj" />
+    <ProjectReference Include="..\Federation.Storage.AzureTables\Federation.Storage.AzureTables.csproj" />
     <ProjectReference Include="..\Federation.Sync\Federation.Sync.csproj" />
   </ItemGroup>
 </Project>

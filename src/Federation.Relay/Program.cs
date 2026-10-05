@@ -4,13 +4,20 @@ using Federation.Relay.Routes;
 using Federation.Relay.Stores;
 using Federation.Relay.Services;
 using Federation.Storage;
+using Federation.Storage.AzureTables;
 using Federation.Sync;
 
 var builder = WebApplication.CreateBuilder(args);
 
 var storageMode = builder.Configuration.GetValue<string>("StorageMode") ?? "InMemory";
 
-if (string.Equals(storageMode, "Sqlite", StringComparison.OrdinalIgnoreCase))
+if (string.Equals(storageMode, "AzureTables", StringComparison.OrdinalIgnoreCase))
+{
+    var connString = builder.Configuration.GetValue<string>("AzureTablesConnectionString")
+        ?? throw new InvalidOperationException("AzureTablesConnectionString is required for AzureTables storage mode.");
+    builder.Services.AddAzureTablesStorage(connString);
+}
+else if (string.Equals(storageMode, "Sqlite", StringComparison.OrdinalIgnoreCase))
 {
     var dbPath = builder.Configuration.GetValue<string>("DatabasePath") ?? "federation-relay.db";
     builder.Services.AddFederationStorage(dbPath);
