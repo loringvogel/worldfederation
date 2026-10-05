@@ -17,7 +17,12 @@ public static class DeviceRoutes
         {
             var (publicKey, _) = crypto.GenerateDeviceKeyPair();
             var registration = await devices.RegisterDeviceAsync(request.DisplayName, publicKey).ConfigureAwait(false);
-            return Results.Created($"/v1/devices/{registration.DeviceId}", registration);
+            var response = new DeviceRegistrationApiResponse(
+                registration.DeviceId.Value.ToString("D"),
+                registration.DisplayName,
+                registration.DeviceToken,
+                registration.RegisteredAt);
+            return Results.Created($"/v1/devices/{registration.DeviceId}", response);
         });
 
         group.MapDelete("/{deviceId}", async (
@@ -65,3 +70,6 @@ public sealed record RegisterDeviceRequest
 {
     public required string DisplayName { get; init; }
 }
+
+/// <summary>Wire response for device registration — uses plain strings to avoid strong-ID serialization issues.</summary>
+public sealed record DeviceRegistrationApiResponse(string DeviceId, string DisplayName, string DeviceToken, DateTimeOffset RegisteredAt);
