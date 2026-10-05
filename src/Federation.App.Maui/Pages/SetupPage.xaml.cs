@@ -79,6 +79,17 @@ public partial class SetupPage : ContentPage
         ShowStatus("Device ID copied to clipboard.", true);
     }
 
+    private void OnClientTypeChanged(object? sender, EventArgs e)
+    {
+        var isDesktop = ClientTypePicker.SelectedIndex == 1;
+        ProjectFolderRow.IsVisible = !isDesktop;
+        DesktopConfigPathLabel.IsVisible = isDesktop;
+        if (isDesktop)
+            DesktopConfigPathLabel.Text = $"Config: {GetClaudeDesktopConfigPath()}";
+        // Enable button if Desktop selected (no folder needed) or if Code + folder already chosen
+        SetupClaudeButton.IsEnabled = isDesktop || !string.IsNullOrEmpty(ProjectFolderEntry.Text);
+    }
+
     private void OnBrowseProjectFolder(object? sender, EventArgs e)
     {
         // FolderPicker is Windows/Mac only — handled via platform-specific API
@@ -107,8 +118,9 @@ public partial class SetupPage : ContentPage
         var s = _settings.Current;
         if (!s.IsRegistered) { ShowStatus("Register first.", false); return; }
 
-        var projectFolder = ProjectFolderEntry.Text?.Trim();
-        if (string.IsNullOrEmpty(projectFolder)) { ShowStatus("Choose a project folder first.", false); return; }
+        var projectFolder = ClientTypePicker.SelectedIndex == 0 ? ProjectFolderEntry.Text?.Trim() : null;
+        if (ClientTypePicker.SelectedIndex == 0 && string.IsNullOrEmpty(projectFolder))
+        { ShowStatus("Choose a project folder first.", false); return; }
 
         SetupClaudeButton.IsEnabled = false;
         SetupProgressLabel.IsVisible = true;
@@ -126,12 +138,18 @@ public partial class SetupPage : ContentPage
             SetupProgressLabel.Text = "Writing node config…";
             WriteNodeConfig(s);
 
-            // 3. Write .mcp.json to project folder
-            SetupProgressLabel.Text = "Writing Claude Code config…";
-            WriteMcpJson(projectFolder);
+            // 3. Write MCP config to the appropriate location
+            SetupProgressLabel.Text = "Writing Claude config…";
+            if (ClientTypePicker.SelectedIndex == 1)
+                WriteClaudeDesktopConfig();
+            else
+                WriteMcpJson(projectFolder!);
 
             SetupProgressLabel.IsVisible = false;
-            ShowStatus($"Done! Restart Claude Code in that folder.\n\nYour Device ID:\n{s.DeviceId}\n\nShare it with your room owner to be invited.", true);
+            var doneMsg = ClientTypePicker.SelectedIndex == 1
+                ? $"Done! Restart Claude Desktop to pick up the new config.\n\nYour Device ID:\n{s.DeviceId}\n\nShare it with your room owner to be invited."
+                : $"Done! Restart Claude Code in that folder.\n\nYour Device ID:\n{s.DeviceId}\n\nShare it with your room owner to be invited.";
+            ShowStatus(doneMsg, true);
         }
         catch (Exception ex)
         {
@@ -211,6 +229,57 @@ public partial class SetupPage : ContentPage
 
         var json = JsonSerializer.Serialize(mcpJson, JsonOpts);
         File.WriteAllText(Path.Combine(projectFolder, ".mcp.json"), json);
+    }
+
+    private static string GetClaudeDesktopConfigPath()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "Claude", "claude_desktop_config.json");
+        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            "Library", "Application Support", "Claude", "claude_desktop_config.json");
+    }
+
+    private static void WriteClaudeDesktopConfig()
+    {
+        var configPath = GetClaudeDesktopConfigPath();
+        Directory.CreateDirectory(Path.GetDirectoryName(configPath)!);
+
+        // Load existing config if present (preserve other MCP servers)
+        var root = new Dictionary<string, object>();
+        if (File.Exists(configPath))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(File.ReadAllText(configPath));
+                foreach (var prop in doc.RootElement.EnumerateObject())
+                    root[prop.Name] = prop.Value.Clone();
+            }
+            catch { /* start fresh if corrupt */ }
+        }
+
+        // Upsert the federation entry under mcpServers
+        var mcpServers = new Dictionary<string, object>
+        {
+            ["federation"] = new
+            {
+                command = McpExePath,
+                args    = new[] { "--config", NodeConfigPath },
+            }
+        };
+
+        // Merge with existing mcpServers if any
+        if (root.TryGetValue("mcpServers", out var existing) && existing is JsonElement je)
+        {
+            foreach (var server in je.EnumerateObject())
+            {
+                if (server.Name != "federation")
+                    mcpServers[server.Name] = server.Value.Clone();
+            }
+        }
+
+        root["mcpServers"] = mcpServers;
+        File.WriteAllText(configPath, JsonSerializer.Serialize(root, JsonOpts));
     }
 
     private static string GetRid()

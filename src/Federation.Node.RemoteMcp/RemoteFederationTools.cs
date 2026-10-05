@@ -34,9 +34,10 @@ public sealed class RemoteFederationTools
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
-        PropertyNamingPolicy     = JsonNamingPolicy.CamelCase,
+        PropertyNamingPolicy        = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true,
-        WriteIndented            = true,
+        WriteIndented               = true,
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
     };
 
     // ── list_rooms ────────────────────────────────────────────────────────
@@ -224,6 +225,8 @@ public sealed class RemoteFederationTools
 
         var crypto  = new InMemoryCryptoProvider();
         var session = new InMemoryGroupSession();
+        var roomKey = System.Security.Cryptography.SHA256.HashData(Guid.Parse(roomId).ToByteArray());
+        session.SetGroupKey(roomKey, epoch: 1);
         var (publicKey, privateKey) = crypto.GenerateDeviceKeyPair();
         using var httpClient = httpFactory.CreateClient();
         var options = new CouncilNodeOptions

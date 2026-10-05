@@ -74,8 +74,14 @@
                     <Label Text="CLAUDE CODE INTEGRATION" FontSize="11" FontAttributes="Bold" TextColor="Gray" />
                     <Label Text="Pick the project folder where Claude Code runs, and we'll configure everything automatically."
                            FontSize="12" TextColor="Gray" />
-                    <Label Text="Project folder" FontSize="12" TextColor="Gray" />
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <Label Text="Client type" FontSize="12" TextColor="Gray" />
+                    <Picker x:Name="ClientTypePicker" Title="— choose —" SelectedIndexChanged="OnClientTypeChanged">
+                        <Picker.Items>
+                            <x:String>Claude Code (project folder)</x:String>
+                            <x:String>Claude Desktop (system config)</x:String>
+                        </Picker.Items>
+                    </Picker>
+                    <Grid x:Name="ProjectFolderRow" ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="False">
                         <Entry x:Name="ProjectFolderEntry" Grid.Column="0"
                                Placeholder="(tap Browse to choose)" FontSize="13" IsReadOnly="True" />
                         <Button Grid.Column="1" Text="Browse…" Clicked="OnBrowseProjectFolder"
@@ -83,7 +89,8 @@
                                 TextColor="{AppThemeBinding Light=Black, Dark=White}"
                                 CornerRadius="8" FontSize="13" HeightRequest="40" WidthRequest="90" />
                     </Grid>
-                    <Button x:Name="SetupClaudeButton" Text="Set up Claude Code" Clicked="OnSetupClaudeCodeAsync"
+                    <Label x:Name="DesktopConfigPathLabel" IsVisible="False" FontSize="12" TextColor="Gray" />
+                    <Button x:Name="SetupClaudeButton" Text="Set up Claude" Clicked="OnSetupClaudeCodeAsync"
                             BackgroundColor="#0a84ff" TextColor="White"
                             CornerRadius="8" FontSize="14" HeightRequest="40"
                             IsEnabled="False" />
