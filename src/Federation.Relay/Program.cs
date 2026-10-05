@@ -63,6 +63,10 @@ builder.Services.AddHostedService(sp =>
         sp.GetRequiredService<IEventBus>(),
         sp.GetRequiredService<ILogger<RoundTimeoutService>>()));
 
+// JSON: deserialize enums as strings and strong IDs as plain GUIDs
+builder.Services.ConfigureHttpJsonOptions(opts =>
+    opts.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
+
 // CORS (permissive for dev — relay and UI are same-origin in production)
 builder.Services.AddCors();
 
