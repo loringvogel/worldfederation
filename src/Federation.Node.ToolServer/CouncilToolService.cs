@@ -50,6 +50,12 @@ public sealed class CouncilToolService
         // Get discussion state from relay
         var discussions = await GetDiscussionsInRoomAsync(roomId, ct).ConfigureAwait(false);
 
+        // Poll and decrypt new envelopes into cache before reading
+        foreach (var disc in discussions)
+        {
+            await _node.PollAndProcessAsync(roomId, disc.DiscussionId, ct).ConfigureAwait(false);
+        }
+
         // Get locally cached decrypted messages
         var allMessages = new List<DecryptedMessage>();
         foreach (var disc in discussions)
