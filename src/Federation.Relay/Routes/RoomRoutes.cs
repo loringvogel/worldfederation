@@ -46,6 +46,37 @@ public static class RoomRoutes
             return Results.Created($"/v1/rooms/{room.RoomId}", room);
         });
 
+        group.MapGet("/public", async (IRoomRepository rooms) =>
+        {
+            var list = await rooms.ListPublicRoomsAsync().ConfigureAwait(false);
+            return Results.Ok(list);
+        });
+
+        group.MapPost("/{roomId}/join", async (
+            Guid roomId,
+            IRoomRepository rooms,
+            IMembershipRepository memberships,
+            IDeviceRepository devices,
+            HttpContext ctx) =>
+        {
+            if (!ctx.Request.Headers.TryGetValue("X-Device-Id", out var devHeader) ||
+                !Guid.TryParse(devHeader.ToString(), out var parsedDeviceId))
+                return Results.Unauthorized();
+
+            var rid = new RoomId(roomId);
+            var room = await rooms.GetRoomAsync(rid).ConfigureAwait(false);
+            if (room is null) return Results.NotFound("Room not found.");
+            if (!room.IsPublic) return Results.Forbid();
+
+            var deviceId = new DeviceId(parsedDeviceId);
+            // Idempotent: skip if already a member
+            var existing = await memberships.GetMembershipByDeviceAsync(rid, deviceId).ConfigureAwait(false);
+            if (existing is not null) return Results.Ok(existing);
+
+            var membership = await memberships.AddMembershipAsync(rid, deviceId, MemberRole.Participant).ConfigureAwait(false);
+            return Results.Created($"/v1/rooms/{roomId}/members/{membership.MembershipId}", membership);
+        });
+
         return group;
     }
 }

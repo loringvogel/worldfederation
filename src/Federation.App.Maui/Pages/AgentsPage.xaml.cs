@@ -133,7 +133,7 @@ public partial class AgentsPage : ContentPage
     }
 
     // DTOs
-    private sealed record RoomDto(string RoomId, string Name, int MemberCount);
+    private sealed record RoomDto(string RoomId, string Name, int MemberCount, bool IsPublic = false);
     private sealed record DeviceDto(string DeviceId, string DisplayName, DateTimeOffset RegisteredAt);
     private sealed record InviteTokenDto(string TokenCode, string RoomId, string Role, int MaxUses, int UsedCount, DateTimeOffset CreatedAt, DateTimeOffset? ExpiresAt, bool IsRevoked, bool IsValid);
 
@@ -141,5 +141,57 @@ public partial class AgentsPage : ContentPage
     {
         public string TokenCode    { get; } = t.TokenCode;
         public string UsageSummary { get; } = $"{t.Role} · {(t.MaxUses == 0 ? $"{t.UsedCount}/∞ uses" : $"{t.UsedCount}/{t.MaxUses} uses")} · expires {(t.ExpiresAt.HasValue ? t.ExpiresAt.Value.ToString("MMM d", System.Globalization.CultureInfo.CurrentCulture) : "never")}";
+    }
+
+    private sealed class PublicRoomViewModel(RoomDto room, string relayUrl)
+    {
+        public string RoomId        { get; } = room.RoomId;
+        public string Name          { get; } = room.Name;
+        public string MemberSummary { get; } = $"{room.MemberCount} member{(room.MemberCount == 1 ? "" : "s")}";
+        public string RelayUrl      { get; } = relayUrl;
+    }
+
+    private async void OnBrowsePublicRoomsAsync(object? sender, EventArgs e)
+    {
+        var relay = PublicRelayEntry.Text?.Trim();
+        if (string.IsNullOrEmpty(relay)) relay = _settings.Current.RelayUrl?.TrimEnd('/');
+        if (string.IsNullOrEmpty(relay)) { ShowStatus("No relay URL configured.", false); return; }
+
+        try
+        {
+            using var client = MakeClient(_settings.Current);
+            var rooms = await client.GetFromJsonAsync<List<RoomDto>>($"{relay.TrimEnd('/')}/v1/rooms/public", JsonOpts).ConfigureAwait(true);
+            var vms = rooms?.Select(r => new PublicRoomViewModel(r, relay)).ToList() ?? [];
+            PublicRoomsCollection.ItemsSource = vms;
+            if (vms.Count == 0) ShowStatus("No public rooms on that relay.", false);
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Error: {ex.Message}", false);
+        }
+    }
+
+    private async void OnJoinPublicRoomAsync(object? sender, EventArgs e)
+    {
+        if (sender is not Button btn || btn.CommandParameter is not PublicRoomViewModel vm) return;
+        var s = _settings.Current;
+        if (!s.IsRegistered) { ShowStatus("Register first (Setup tab).", false); return; }
+
+        try
+        {
+            using var client = MakeClient(s);
+            var resp = await client.PostAsync(new Uri($"{vm.RelayUrl.TrimEnd('/')}/v1/rooms/{vm.RoomId}/join"), null).ConfigureAwait(true);
+            if (!resp.IsSuccessStatusCode && resp.StatusCode != System.Net.HttpStatusCode.OK)
+            {
+                ShowStatus($"Join failed (HTTP {(int)resp.StatusCode}).", false);
+                return;
+            }
+            ShowStatus($"Joined \"{vm.Name}\".", true);
+            await RefreshAllAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Error: {ex.Message}", false);
+        }
     }
 }

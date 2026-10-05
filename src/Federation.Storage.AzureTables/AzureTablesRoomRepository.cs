@@ -26,7 +26,8 @@ internal sealed class AzureTablesRoomRepository : IRoomRepository
             ["Name"] = request.Name,
             ["CreatedAt"] = now.ToString("O"),
             ["MemberCount"] = 0,
-            ["ActiveDiscussionCount"] = 0
+            ["ActiveDiscussionCount"] = 0,
+            ["IsPublic"] = request.IsPublic
         };
 
         await _table.AddEntityAsync(entity, ct).ConfigureAwait(false);
@@ -70,6 +71,23 @@ internal sealed class AzureTablesRoomRepository : IRoomRepository
         return results;
     }
 
+    public async Task<IReadOnlyList<RoomSummary>> ListPublicRoomsAsync(CancellationToken ct = default)
+    {
+        var results = new List<RoomSummary>();
+        var pages = _table.QueryAsync<TableEntity>(
+            filter: $"IsPublic eq true", cancellationToken: ct);
+
+        await foreach (var entity in pages.ConfigureAwait(false))
+        {
+            if (Guid.TryParse(entity.RowKey, out var guid))
+            {
+                results.Add(ToSummary(new RoomId(guid), entity));
+            }
+        }
+
+        return results;
+    }
+
     internal async Task UpdateMemberCountAsync(RoomId roomId, int delta, CancellationToken ct)
     {
         try
@@ -100,6 +118,7 @@ internal sealed class AzureTablesRoomRepository : IRoomRepository
         var createdAt = DateTimeOffset.Parse(e.GetString("CreatedAt") ?? DateTimeOffset.MinValue.ToString("O"));
         var memberCount = e.GetInt32("MemberCount") ?? 0;
         var activeDiscussionCount = e.GetInt32("ActiveDiscussionCount") ?? 0;
-        return new RoomSummary { RoomId = roomId, Name = name, CreatedAt = createdAt, MemberCount = memberCount, ActiveDiscussionCount = activeDiscussionCount };
+        var isPublic = e.GetBoolean("IsPublic") ?? false;
+        return new RoomSummary { RoomId = roomId, Name = name, CreatedAt = createdAt, MemberCount = memberCount, ActiveDiscussionCount = activeDiscussionCount, IsPublic = isPublic };
     }
 }

@@ -67,12 +67,12 @@ public sealed class RelayClient : IDisposable
     }
 
     /// <summary>POST /v1/rooms</summary>
-    public async Task<RoomSummaryResponse?> CreateRoomAsync(string name, string ownerDeviceId)
+    public async Task<RoomSummaryResponse?> CreateRoomAsync(string name, string ownerDeviceId, bool isPublic = false)
     {
         try
         {
             var response = await _http.PostAsJsonAsync($"{_relayUrl}/v1/rooms",
-                new { Name = name, OwnerDeviceId = ownerDeviceId }, JsonOpts).ConfigureAwait(false);
+                new { Name = name, OwnerDeviceId = ownerDeviceId, IsPublic = isPublic }, JsonOpts).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 await WriteErrorAsync(response, "create room").ConfigureAwait(false);
@@ -84,6 +84,46 @@ public sealed class RelayClient : IDisposable
         {
             Console.Error.WriteLine($"Error creating room: {ex.Message}");
             return null;
+        }
+    }
+
+    /// <summary>GET /v1/rooms/public</summary>
+    public async Task<List<RoomSummaryResponse>> ListPublicRoomsAsync()
+    {
+        try
+        {
+            var response = await _http.GetAsync($"{_relayUrl}/v1/rooms/public").ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                await WriteErrorAsync(response, "list public rooms").ConfigureAwait(false);
+                return [];
+            }
+            return await response.Content.ReadFromJsonAsync<List<RoomSummaryResponse>>(JsonOpts).ConfigureAwait(false) ?? [];
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.Error.WriteLine($"Error listing public rooms: {ex.Message}");
+            return [];
+        }
+    }
+
+    /// <summary>POST /v1/rooms/{roomId}/join</summary>
+    public async Task<bool> JoinPublicRoomAsync(string roomId)
+    {
+        try
+        {
+            var response = await _http.PostAsync($"{_relayUrl}/v1/rooms/{roomId}/join", null).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                await WriteErrorAsync(response, "join room").ConfigureAwait(false);
+                return false;
+            }
+            return true;
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.Error.WriteLine($"Error joining room: {ex.Message}");
+            return false;
         }
     }
 
@@ -253,7 +293,7 @@ public sealed class RelayClient : IDisposable
 public sealed record DeviceRegistrationResponse(string DeviceId, string DisplayName, string DeviceToken, DateTimeOffset RegisteredAt);
 
 /// <summary>Room summary response from the relay.</summary>
-public sealed record RoomSummaryResponse(string RoomId, string Name, DateTimeOffset CreatedAt, int MemberCount);
+public sealed record RoomSummaryResponse(string RoomId, string Name, DateTimeOffset CreatedAt, int MemberCount, bool IsPublic = false);
 
 /// <summary>Membership response from the relay.</summary>
 public sealed record MembershipResponse(string MembershipId, string RoomId, string DeviceId, string Role, DateTimeOffset JoinedAt);

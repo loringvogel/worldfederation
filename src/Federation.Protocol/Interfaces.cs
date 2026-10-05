@@ -35,6 +35,7 @@ public interface IRoomRepository
     Task<RoomSummary> CreateRoomAsync(CreateRoomRequest request, CancellationToken ct = default);
     Task<RoomSummary?> GetRoomAsync(RoomId roomId, CancellationToken ct = default);
     Task<IReadOnlyList<RoomSummary>> ListRoomsAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<RoomSummary>> ListPublicRoomsAsync(CancellationToken ct = default);
 }
 
 /// <summary>Manages discussions within rooms.</summary>

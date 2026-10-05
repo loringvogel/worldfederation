@@ -129,6 +129,10 @@ public static class Program
                 return await RosterAsync(args, configPath, relayOverride).ConfigureAwait(false);
             case "provision-client":
                 return await ProvisionClientAsync(args, configPath, relayOverride).ConfigureAwait(false);
+            case "list-public-rooms":
+                return await ListPublicRoomsAsync(args, configPath, relayOverride).ConfigureAwait(false);
+            case "join-room":
+                return await JoinRoomAsync(args, configPath, relayOverride).ConfigureAwait(false);
             case "help":
                 PrintHelp();
                 return 0;
@@ -227,8 +231,9 @@ public static class Program
             return 1;
         }
 
+        var isPublic = HasFlag(args, "--public");
         using var client = CreateClient(config, relayOverride);
-        var room = await client.CreateRoomAsync(name, config.DeviceId!).ConfigureAwait(false);
+        var room = await client.CreateRoomAsync(name, config.DeviceId!, isPublic).ConfigureAwait(false);
         if (room is null) return 1;
 
         config.Rooms[room.RoomId] = name;
@@ -789,6 +794,75 @@ public static class Program
         return 0;
     }
 
+    // ───────────────────── list-public-rooms ─────────────────────
+
+    private static async Task<int> ListPublicRoomsAsync(string[] args, string configPath, string? relayOverride)
+    {
+        var relay = GetArg(args, "--relay") ?? relayOverride;
+        if (relay is null)
+        {
+            var config = NodeConfig.Load(configPath);
+            relay = config.RelayUrl;
+        }
+
+        if (relay is null)
+        {
+            Console.Error.WriteLine("Relay URL required. Use --relay <url> or register first.");
+            return 1;
+        }
+
+        using var client = new RelayClient(relay);
+        var rooms = await client.ListPublicRoomsAsync().ConfigureAwait(false);
+
+        if (rooms.Count == 0)
+        {
+            Console.WriteLine("No public rooms found.");
+            return 0;
+        }
+
+        Console.WriteLine($"{"ID",-40} {"Name",-25} {"Members",-8}");
+        Console.WriteLine(new string('-', 73));
+        foreach (var r in rooms)
+        {
+            Console.WriteLine($"{r.RoomId,-40} {r.Name,-25} {r.MemberCount,-8}");
+        }
+
+        return 0;
+    }
+
+    // ───────────────────── join-room ─────────────────────
+
+    private static async Task<int> JoinRoomAsync(string[] args, string configPath, string? relayOverride)
+    {
+        var config = NodeConfig.Load(configPath);
+        if (!RequireRegistered(config)) return 1;
+
+        var roomId = GetPositionalArg(args, 1);
+        if (roomId is null)
+        {
+            Console.Error.WriteLine("Usage: join-room <roomId> [--relay <url>] [--set-active]");
+            return 1;
+        }
+
+        using var client = CreateClient(config, relayOverride);
+        var ok = await client.JoinPublicRoomAsync(roomId).ConfigureAwait(false);
+        if (!ok) return 1;
+
+        Console.WriteLine($"Joined room {roomId}.");
+
+        var setActive = HasFlag(args, "--set-active") || config.ActiveRoomId is null;
+        if (setActive)
+        {
+            config.ActiveRoomId = roomId;
+            if (!config.Rooms.ContainsKey(roomId))
+                config.Rooms[roomId] = roomId;
+            config.Save(configPath);
+            Console.WriteLine("  Set as active room.");
+        }
+
+        return 0;
+    }
+
     // ───────────────────── help ─────────────────────
 
     private static void PrintHelp()
@@ -800,7 +874,7 @@ public static class Program
             Commands:
               register --relay <url> --name <name>   Register this node with a relay
               rooms                                   List rooms you belong to
-              create-room <name>                      Create a new council room
+              create-room <name> [--public]            Create a new council room (--public for global)
               invite <deviceId> [--role Role]         Invite a device to the active room
               discussions                             List discussions in the active room
               new-discussion <topic>                  Create a new discussion
@@ -816,6 +890,8 @@ public static class Program
               emergency-stop                          Revoke device and wipe keys
               roster [--room <roomId>]                List named agents in the active room
               provision-client --name <n> --relay <u> Register a claude.ai client and print MCP settings
+              list-public-rooms [--relay <url>]       List public rooms on a relay
+              join-room <roomId> [--set-active]       Join a public room
               help                                    Show this help
 
             Global flags:

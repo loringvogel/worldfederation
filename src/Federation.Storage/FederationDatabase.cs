@@ -47,7 +47,8 @@ public sealed class FederationDatabase : IDisposable
                 name TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 member_count INTEGER NOT NULL DEFAULT 0,
-                active_discussion_count INTEGER NOT NULL DEFAULT 0
+                active_discussion_count INTEGER NOT NULL DEFAULT 0,
+                is_public INTEGER NOT NULL DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS discussions (
@@ -184,6 +185,18 @@ public sealed class FederationDatabase : IDisposable
             );
             """;
         cmd.ExecuteNonQuery();
+
+        // Migration: add is_public column to existing databases (SQLite throws if already exists — ignore)
+        try
+        {
+            using var migCmd = _connection.CreateCommand();
+            migCmd.CommandText = "ALTER TABLE rooms ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0;";
+            migCmd.ExecuteNonQuery();
+        }
+        catch (Microsoft.Data.Sqlite.SqliteException)
+        {
+            // Column already exists — safe to ignore
+        }
     }
 
     public int PruneExpiredEnvelopes()

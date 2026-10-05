@@ -33,6 +33,7 @@ public sealed record RoomSummary
     public required DateTimeOffset CreatedAt { get; init; }
     public required int MemberCount { get; init; }
     public required int ActiveDiscussionCount { get; init; }
+    public bool IsPublic { get; init; }
 }
 
 /// <summary>Current state of a discussion, including phase and round tracking.</summary>
@@ -119,6 +120,7 @@ public sealed record CreateRoomRequest
 {
     public required string Name { get; init; }
     public required DeviceId OwnerDeviceId { get; init; }
+    public bool IsPublic { get; init; }
 }
 
 /// <summary>Request to create a new discussion within a room.</summary>

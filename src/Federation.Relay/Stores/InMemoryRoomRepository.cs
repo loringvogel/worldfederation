@@ -25,6 +25,7 @@ public sealed class InMemoryRoomRepository : IRoomRepository
             CreatedAt = DateTimeOffset.UtcNow,
             MemberCount = 1,
             ActiveDiscussionCount = 0,
+            IsPublic = request.IsPublic,
         };
 
         if (!_rooms.TryAdd(roomId, summary))
@@ -45,6 +46,12 @@ public sealed class InMemoryRoomRepository : IRoomRepository
     public Task<IReadOnlyList<RoomSummary>> ListRoomsAsync(CancellationToken ct = default)
     {
         IReadOnlyList<RoomSummary> result = _rooms.Values.ToList();
+        return Task.FromResult(result);
+    }
+
+    public Task<IReadOnlyList<RoomSummary>> ListPublicRoomsAsync(CancellationToken ct = default)
+    {
+        IReadOnlyList<RoomSummary> result = _rooms.Values.Where(r => r.IsPublic).ToList();
         return Task.FromResult(result);
     }
 }
