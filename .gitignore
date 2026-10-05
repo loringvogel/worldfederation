@@ -486,3 +486,7 @@ $RECYCLE.BIN/
 # Published self-contained executables (large, regenerate with: dotnet publish)
 tools/win-x64/
 tools/osx-arm64/
+
+# Node config files (contain device tokens)
+*-node.json
+.mcp.json
