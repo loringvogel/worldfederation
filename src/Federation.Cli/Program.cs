@@ -231,9 +231,6 @@ public static class Program
         var room = await client.CreateRoomAsync(name, config.DeviceId!).ConfigureAwait(false);
         if (room is null) return 1;
 
-        // Self-invite as Owner
-        await client.InviteDeviceAsync(room.RoomId, config.DeviceId!, "Owner").ConfigureAwait(false);
-
         config.Rooms[room.RoomId] = name;
         config.ActiveRoomId = room.RoomId;
         config.Save(configPath);
