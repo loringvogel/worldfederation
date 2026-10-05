@@ -2,5 +2,6 @@
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>Federation.Protocol</RootNamespace>
+    <NoWarn>$(NoWarn);CA1062</NoWarn>
   </PropertyGroup>
 </Project>
