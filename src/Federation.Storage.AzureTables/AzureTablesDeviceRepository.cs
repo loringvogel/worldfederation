@@ -55,6 +55,17 @@ internal sealed class AzureTablesDeviceRepository : IDeviceRepository
         return registration is not null && registration.DeviceToken == token;
     }
 
+    public async Task<IReadOnlyList<DeviceRegistration>> ListAllAsync(CancellationToken ct)
+    {
+        var results = new List<DeviceRegistration>();
+        await foreach (var entity in _table.QueryAsync<TableEntity>(filter: $"PartitionKey eq 'all'", cancellationToken: ct).ConfigureAwait(false))
+        {
+            var deviceId = new DeviceId(Guid.Parse(entity.RowKey));
+            results.Add(ToRegistration(deviceId, entity));
+        }
+        return results;
+    }
+
     public async Task RemoveDeviceAsync(DeviceId deviceId, CancellationToken ct)
     {
         try

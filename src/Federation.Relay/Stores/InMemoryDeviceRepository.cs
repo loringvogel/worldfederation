@@ -30,6 +30,9 @@ public sealed class InMemoryDeviceRepository : IDeviceRepository
         return Task.FromResult(false);
     }
 
+    public Task<IReadOnlyList<DeviceRegistration>> ListAllAsync(CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<DeviceRegistration>>(_devices.Values.ToList());
+
     public Task RemoveDeviceAsync(DeviceId deviceId, CancellationToken ct = default)
     {
         _devices.TryRemove(deviceId, out _);

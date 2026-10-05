@@ -63,8 +63,19 @@ public interface IDeviceRepository
 {
     Task<DeviceRegistration> RegisterDeviceAsync(string displayName, byte[] publicKey, CancellationToken ct = default);
     Task<DeviceRegistration?> GetDeviceAsync(DeviceId deviceId, CancellationToken ct = default);
+    Task<IReadOnlyList<DeviceRegistration>> ListAllAsync(CancellationToken ct = default);
     Task<bool> ValidateTokenAsync(DeviceId deviceId, string token, CancellationToken ct = default);
     Task RemoveDeviceAsync(DeviceId deviceId, CancellationToken ct = default);
+}
+
+/// <summary>Creates and validates invite tokens for automatic room membership on registration.</summary>
+public interface IInviteTokenRepository
+{
+    Task<InviteToken> CreateAsync(RoomId roomId, MemberRole role, int maxUses = 1, DateTimeOffset? expiresAt = null, CancellationToken ct = default);
+    /// <summary>Validates the token and increments UsedCount. Returns null if invalid/expired/exhausted.</summary>
+    Task<InviteToken?> ValidateAndConsumeAsync(string tokenCode, CancellationToken ct = default);
+    Task<IReadOnlyList<InviteToken>> ListAsync(CancellationToken ct = default);
+    Task<bool> RevokeAsync(string tokenCode, CancellationToken ct = default);
 }
 
 /// <summary>Tracks acknowledgement cursors for relay polling.</summary>

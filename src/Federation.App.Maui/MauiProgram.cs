@@ -32,6 +32,7 @@ public static class MauiProgram
         // Pages
         builder.Services.AddTransient<Pages.SetupPage>();
         builder.Services.AddTransient<Pages.DiscussionPage>();
+        builder.Services.AddTransient<Pages.AgentsPage>();
 
         return builder.Build();
     }

@@ -26,6 +26,18 @@ public static class DeviceRoutes
             return Results.Created($"/v1/devices/{registration.DeviceId}", response);
         });
 
+        group.MapGet("/", async (IDeviceRepository devices) =>
+        {
+            var all = await devices.ListAllAsync().ConfigureAwait(false);
+            var response = all.Select(d => new DeviceRegistrationApiResponse(
+                d.DeviceId.Value.ToString("D"),
+                d.DisplayName,
+                d.DeviceToken,
+                d.RegisteredAt,
+                d.PublicKey)).ToList();
+            return Results.Ok(response);
+        });
+
         group.MapDelete("/{deviceId}", async (
             Guid deviceId,
             IDeviceRepository devices) =>

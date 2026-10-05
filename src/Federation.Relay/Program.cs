@@ -27,6 +27,8 @@ else if (string.Equals(storageMode, "Sqlite", StringComparison.OrdinalIgnoreCase
         new EnvelopePruningService(
             sp.GetRequiredService<FederationDatabase>(),
             sp.GetRequiredService<ILogger<EnvelopePruningService>>()));
+
+    builder.Services.AddSingleton<IInviteTokenRepository, InMemoryInviteTokenRepository>();
 }
 else
 {
@@ -42,6 +44,7 @@ else
     builder.Services.AddSingleton<IDiscussionRepository, InMemoryDiscussionRepository>();
     builder.Services.AddSingleton<ISecurityEventStore, InMemorySecurityEventStore>();
     builder.Services.AddSingleton<IDeviceRepository, InMemoryDeviceRepository>();
+    builder.Services.AddSingleton<IInviteTokenRepository, InMemoryInviteTokenRepository>();
 }
 
 // Event bus: AzureTables mode registers AzureQueuesEventBus; others use in-memory.
@@ -97,6 +100,7 @@ app.MapRoomRoutes();
 app.MapMembershipRoutes();
 app.MapDiscussionRoutes();
 app.MapEnvelopeRoutes();
+app.MapInviteTokenRoutes();
 
 app.Run();
 

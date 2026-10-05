@@ -48,6 +48,8 @@ public static class AzureTablesStorageExtensions
 
         services.AddSingleton<IEventBus>(_ => new AzureQueuesEventBus(connectionString));
 
+        services.AddSingleton<IInviteTokenRepository>(_ => new AzureTablesInviteTokenRepository(connectionString));
+
         return services;
     }
 }

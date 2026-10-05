@@ -73,6 +73,22 @@ public sealed record MembershipRecord
     public bool IsActive => RevokedAt is null;
 }
 
+/// <summary>A single-use or multi-use token that lets a device register and auto-join a room.</summary>
+public sealed record InviteToken
+{
+    public required string TokenCode    { get; init; }   // shareable code, e.g. "A1B2C3D4E5F6G7H8"
+    public required RoomId RoomId       { get; init; }
+    public required MemberRole Role     { get; init; }
+    public required int MaxUses         { get; init; }   // 0 = unlimited
+    public required int UsedCount       { get; set; }
+    public required DateTimeOffset CreatedAt { get; init; }
+    public DateTimeOffset? ExpiresAt    { get; init; }
+    public bool IsRevoked               { get; set; }
+    public bool IsValid => !IsRevoked
+        && (MaxUses == 0 || UsedCount < MaxUses)
+        && (ExpiresAt is null || ExpiresAt.Value > DateTimeOffset.UtcNow);
+}
+
 /// <summary>Registration information for a device in the system.</summary>
 public sealed record DeviceRegistration
 {
