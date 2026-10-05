@@ -34,10 +34,6 @@ WORKDIR /app
 
 COPY --from=build /app/publish .
 
-# Data directory for SQLite database
-RUN mkdir -p /data && chown federation:federation /data
-VOLUME ["/data"]
-
 USER federation
 
 ENV ASPNETCORE_URLS=http://+:5000
