@@ -281,7 +281,17 @@ public sealed class FederationTools
              .SetMinimumLevel(LogLevel.Warning));
         var logger = loggerFactory.CreateLogger<CouncilNode>();
 
-        var node = new CouncilNode(options, crypto, new InMemoryGroupSession(), new InMemoryKeyStore(),
+        var groupSession = new InMemoryGroupSession();
+        var keyRoomId = config.ActiveRoomId is not null
+            ? Guid.Parse(config.ActiveRoomId)
+            : (options.RoomIds.Length > 0 ? options.RoomIds[0].Value : (Guid?)null);
+        if (keyRoomId.HasValue)
+        {
+            var roomKey = System.Security.Cryptography.SHA256.HashData(keyRoomId.Value.ToByteArray());
+            groupSession.SetGroupKey(roomKey, epoch: 1);
+        }
+
+        var node = new CouncilNode(options, crypto, groupSession, new InMemoryKeyStore(),
             new InMemoryLocalCache(), httpClient, logger, publicKey, privateKey);
         var tool = new CouncilToolService(node, httpFactory.CreateClient());
 
