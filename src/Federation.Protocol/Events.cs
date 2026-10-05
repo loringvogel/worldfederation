@@ -1,5 +1,13 @@
+using System.Text.Json.Serialization;
+
 namespace Federation.Protocol;
 
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
+[JsonDerivedType(typeof(MessageAccepted),  "MessageAccepted")]
+[JsonDerivedType(typeof(RoundAdvanced),    "RoundAdvanced")]
+[JsonDerivedType(typeof(MemberRevoked),    "MemberRevoked")]
+[JsonDerivedType(typeof(DiscussionClosed), "DiscussionClosed")]
+[JsonDerivedType(typeof(EpochRotated),     "EpochRotated")]
 /// <summary>Base class for all domain events in the council system.</summary>
 public abstract record DomainEvent
 {

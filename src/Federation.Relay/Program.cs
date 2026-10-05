@@ -44,10 +44,13 @@ else
     builder.Services.AddSingleton<IDeviceRepository, InMemoryDeviceRepository>();
 }
 
-// Event bus
-var eventBus = new InMemoryEventBus();
-builder.Services.AddSingleton<IEventBus>(eventBus);
-builder.Services.AddSingleton(eventBus);
+// Event bus: AzureTables mode registers AzureQueuesEventBus; others use in-memory.
+if (!string.Equals(storageMode, "AzureTables", StringComparison.OrdinalIgnoreCase))
+{
+    var eventBus = new InMemoryEventBus();
+    builder.Services.AddSingleton<IEventBus>(eventBus);
+    builder.Services.AddSingleton(eventBus);
+}
 
 // Cryptography (Phase 1 in-memory stubs)
 builder.Services.AddSingleton<ICryptoProvider, InMemoryCryptoProvider>();

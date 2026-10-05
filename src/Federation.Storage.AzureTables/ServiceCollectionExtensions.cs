@@ -46,6 +46,8 @@ public static class AzureTablesStorageExtensions
         services.AddSingleton<ISecurityEventStore>(sp =>
             new AzureTablesSecurityEventStore(sp.GetRequiredService<TableServiceClient>()));
 
+        services.AddSingleton<IEventBus>(_ => new AzureQueuesEventBus(connectionString));
+
         return services;
     }
 }
