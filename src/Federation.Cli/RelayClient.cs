@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace Federation.Cli;
 
@@ -36,13 +37,32 @@ public sealed class RelayClient : IDisposable
                 await WriteErrorAsync(response, "register device").ConfigureAwait(false);
                 return null;
             }
-            return await response.Content.ReadFromJsonAsync<DeviceRegistrationResponse>(JsonOpts).ConfigureAwait(false);
+            // Parse manually to handle relay returning deviceId as either a plain string
+            // or a nested {"value":"..."} object (strong-ID default serialization).
+            using var doc = await JsonDocument.ParseAsync(
+                await response.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false);
+            var root = doc.RootElement;
+            var deviceIdStr = ExtractIdField(root, "deviceId");
+            return new DeviceRegistrationResponse(
+                DeviceId: deviceIdStr ?? "",
+                DisplayName: root.GetProperty("displayName").GetString() ?? "",
+                DeviceToken: root.GetProperty("deviceToken").GetString() ?? "",
+                RegisteredAt: root.GetProperty("registeredAt").GetDateTimeOffset());
         }
         catch (HttpRequestException ex)
         {
             Console.Error.WriteLine($"Error registering device: {ex.Message}");
             return null;
         }
+    }
+
+    /// <summary>Reads a GUID field that may be a plain string or a {"value":"..."} object.</summary>
+    private static string? ExtractIdField(JsonElement root, string propertyName)
+    {
+        if (!root.TryGetProperty(propertyName, out var prop)) return null;
+        return prop.ValueKind == JsonValueKind.Object
+            ? prop.GetProperty("value").GetString()
+            : prop.GetString();
     }
 
     /// <summary>POST /v1/rooms</summary>
