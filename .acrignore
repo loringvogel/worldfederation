@@ -1,0 +1,7 @@
+.vs/
+.vshistory/
+.vscode/
+src/**/bin/
+src/**/obj/
+deploy/containers/obj/
+*.user
