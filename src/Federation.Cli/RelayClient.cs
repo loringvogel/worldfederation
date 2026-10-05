@@ -15,6 +15,7 @@ public sealed class RelayClient : IDisposable
     {
         PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true,
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
     };
 
     public RelayClient(string relayUrl, string? deviceId = null, string? deviceToken = null)

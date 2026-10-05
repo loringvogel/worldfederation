@@ -21,6 +21,7 @@ public sealed class CouncilToolService
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true,
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
     };
 
     public CouncilToolService(CouncilNode node, HttpClient httpClient)

@@ -38,6 +38,7 @@ public sealed class CouncilNode : IDisposable
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true,
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
     };
 
     public CouncilNode(

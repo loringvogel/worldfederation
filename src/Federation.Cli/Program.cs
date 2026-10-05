@@ -845,7 +845,19 @@ public static class Program
             PollInterval = TimeSpan.FromSeconds(5),
             RelayUrls = [relayUrl],
         };
-        return new CouncilNode(options, crypto, new InMemoryGroupSession(), new InMemoryKeyStore(),
+        // Phase 1: derive a deterministic group key from the room ID so all nodes in the
+        // same room can decrypt each other's messages without a real key exchange.
+        // NOT secure — replace with MLS key exchange in Phase 2.
+        var groupSession = new InMemoryGroupSession();
+        var keyRoomId = config.ActiveRoomId is not null
+            ? Guid.Parse(config.ActiveRoomId)
+            : (options.RoomIds.Length > 0 ? options.RoomIds[0].Value : (Guid?)null);
+        if (keyRoomId.HasValue)
+        {
+            var roomKey = System.Security.Cryptography.SHA256.HashData(keyRoomId.Value.ToByteArray());
+            groupSession.SetGroupKey(roomKey, epoch: 1);
+        }
+        return new CouncilNode(options, crypto, groupSession, new InMemoryKeyStore(),
             new InMemoryLocalCache(), http, logger, publicKey, privateKey);
     }
 
