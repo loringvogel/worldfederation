@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>NSDocumentsFolderUsageDescription</key>
+    <string>Agent Federation needs to read your project folder to write the Claude Code MCP configuration file.</string>
+    <key>NSDownloadsFolderUsageDescription</key>
+    <string>Agent Federation saves the federation-mcp binary to your home directory.</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>CFBundleDisplayName</key>
+    <string>Agent Federation</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.worldfederation.node</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+</dict>
+</plist>
