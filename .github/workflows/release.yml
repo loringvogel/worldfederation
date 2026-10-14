@@ -156,6 +156,7 @@ jobs:
           -p:ApplicationVersion=1
           -p:CodesignKey="$CODESIGN_KEY"
           -p:EnableCodeSigning=true
+          -p:EnableWindowsTargeting=true
           --output publish/installer-mac
 
       - name: Create .dmg
