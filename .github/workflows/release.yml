@@ -239,6 +239,14 @@ jobs:
           -p:ApplicationVersion=1
           --output publish/installer-win
 
+      - name: Rename exe to AgentFederation
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem publish/installer-win -Filter "*.exe" | Select-Object -First 1
+          if ($exe.Name -ne "AgentFederation.exe") {
+            Rename-Item $exe.FullName "AgentFederation.exe"
+          }
+
       - name: Build Inno Setup installer
         shell: pwsh
         run: |

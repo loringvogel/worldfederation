@@ -6,7 +6,6 @@
     <UseMaui>true</UseMaui>
     <SingleProject>true</SingleProject>
     <!-- Application metadata -->
-    <AssemblyName>AgentFederation</AssemblyName>
     <ApplicationTitle>Agent Federation</ApplicationTitle>
     <ApplicationId>com.worldfederation.node</ApplicationId>
     <ApplicationVersion>1</ApplicationVersion>
