@@ -212,7 +212,7 @@ jobs:
           dotnet-version: '9.0.x'
 
       - name: Install MAUI workload
-        run: dotnet workload install maui-windows
+        run: dotnet workload install maui-windows wasm-tools
 
       - name: Get version
         id: version
