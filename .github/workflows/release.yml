@@ -119,7 +119,7 @@ jobs:
           dotnet-version: '9.0.x'
 
       - name: Install MAUI workload
-        run: dotnet workload install maui-maccatalyst
+        run: dotnet workload update && dotnet workload install maui-maccatalyst
 
       - name: Get version
         id: version
