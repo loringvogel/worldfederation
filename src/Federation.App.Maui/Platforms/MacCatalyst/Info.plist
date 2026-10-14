@@ -6,8 +6,6 @@
     <string>Agent Federation needs to read your project folder to write the Claude Code MCP configuration file.</string>
     <key>NSDownloadsFolderUsageDescription</key>
     <string>Agent Federation saves the federation-mcp binary to your home directory.</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>14.0</string>
     <key>CFBundleDisplayName</key>
     <string>Agent Federation</string>
     <key>CFBundleIdentifier</key>
