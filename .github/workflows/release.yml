@@ -121,23 +121,79 @@ jobs:
       - name: Install MAUI workload
         run: dotnet workload install maui-maccatalyst
 
+      - name: Get version
+        id: version
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+ ]]; then VERSION="1.0.0"; fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Import Developer ID certificate
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PASS=$(openssl rand -base64 32)
+          echo "$CERTIFICATE_BASE64" | base64 --decode > /tmp/cert.p12
+          security create-keychain -p "$KEYCHAIN_PASS" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASS" build.keychain
+          security import /tmp/cert.p12 -k build.keychain \
+            -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list \
+            -S apple-tool:,apple: -s -k "$KEYCHAIN_PASS" build.keychain
+          rm /tmp/cert.p12
+
       - name: Publish MAUI (macCatalyst)
+        env:
+          CODESIGN_KEY: ${{ secrets.APPLE_CODESIGN_IDENTITY }}
         run: >
           dotnet publish src/Federation.App.Maui/Federation.App.Maui.csproj
           -f net9.0-maccatalyst
           -c Release
-          -p:ApplicationDisplayVersion=1.0
+          -p:ApplicationDisplayVersion=${{ steps.version.outputs.version }}
           -p:ApplicationVersion=1
-          -p:CodesignKey="-"
+          -p:CodesignKey="$CODESIGN_KEY"
           -p:EnableCodeSigning=true
           --output publish/installer-mac
 
-      - name: Package .app as zip
+      - name: Create .dmg
         run: |
+          brew install create-dmg
+          APP=$(find publish/installer-mac -name "*.app" -maxdepth 3 | head -1)
+          APP_DIR=$(dirname "$APP")
           mkdir -p dist
-          APP=$(find publish/installer-mac -name "*.app" | head -1)
-          cd publish/installer-mac
-          zip -r ../../dist/AgentFederation-mac.zip "$(basename "$APP")"
+          create-dmg \
+            --volname "Agent Federation" \
+            --window-pos 200 120 \
+            --window-size 580 380 \
+            --icon-size 96 \
+            --icon "$(basename "$APP")" 160 185 \
+            --hide-extension "$(basename "$APP")" \
+            --app-drop-link 400 185 \
+            "dist/AgentFederation-mac.dmg" \
+            "$APP_DIR/"
+
+      - name: Sign .dmg
+        env:
+          CODESIGN_KEY: ${{ secrets.APPLE_CODESIGN_IDENTITY }}
+        run: codesign --sign "$CODESIGN_KEY" dist/AgentFederation-mac.dmg
+
+      - name: Notarize .dmg
+        env:
+          APPLE_ID: ${{ secrets.NOTARIZE_APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.NOTARIZE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcrun notarytool submit dist/AgentFederation-mac.dmg \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+      - name: Staple notarization ticket
+        run: xcrun stapler staple dist/AgentFederation-mac.dmg
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -158,22 +214,31 @@ jobs:
       - name: Install MAUI workload
         run: dotnet workload install maui-windows
 
+      - name: Get version
+        id: version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag.TrimStart('v')
+          if ($version -notmatch '^\d+\.\d+') { $version = '1.0.0' }
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+
       - name: Publish MAUI (Windows)
         run: >
           dotnet publish src/Federation.App.Maui/Federation.App.Maui.csproj
           -f net9.0-windows10.0.19041.0
           -c Release
           -p:WindowsPackageType=None
-          -p:ApplicationDisplayVersion=1.0
+          -p:ApplicationDisplayVersion=${{ steps.version.outputs.version }}
           -p:ApplicationVersion=1
           --output publish/installer-win
 
-      - name: Package as zip
+      - name: Build Inno Setup installer
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force dist | Out-Null
-          $exe = Get-ChildItem publish/installer-win -Filter "*.exe" | Select-Object -First 1
-          Compress-Archive -Path $exe.FullName -DestinationPath dist/AgentFederation-win.zip
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" `
+            /DAppVersion=${{ steps.version.outputs.version }} `
+            install\AgentFederation.iss
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -199,14 +264,14 @@ jobs:
           body: |
             ## Agent Federation ${{ github.ref_name }}
 
-            ### Setup App (recommended for new users)
+            ### Download
 
-            | Platform | Download |
+            | Platform | Installer |
             |---|---|
-            | macOS | [`AgentFederation-mac.zip`](../../releases/download/${{ github.ref_name }}/AgentFederation-mac.zip) — unzip, right-click → Open |
-            | Windows | [`AgentFederation-win.zip`](../../releases/download/${{ github.ref_name }}/AgentFederation-win.zip) — unzip, run the `.exe` |
+            | macOS | [AgentFederation-mac.dmg](../../releases/download/${{ github.ref_name }}/AgentFederation-mac.dmg) |
+            | Windows | [AgentFederation-win-setup.exe](../../releases/download/${{ github.ref_name }}/AgentFederation-win-setup.exe) |
 
-            The setup app registers your device, downloads the MCP server, and configures Claude Code or Claude Desktop automatically. No terminal needed.
+            The installer registers your device, downloads the MCP server, and configures Claude Code or Claude Desktop automatically. No terminal needed.
 
             ### Advanced / server binaries
 
