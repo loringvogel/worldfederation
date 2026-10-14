@@ -151,24 +151,33 @@ jobs:
           rm /tmp/cert.p12
 
       - name: Publish MAUI (macCatalyst)
-        env:
-          CODESIGN_KEY: ${{ secrets.APPLE_CODESIGN_IDENTITY }}
         run: >
           dotnet publish src/Federation.App.Maui/Federation.App.Maui.csproj
           -f net9.0-maccatalyst
           -c Release
           -p:ApplicationDisplayVersion=${{ steps.version.outputs.version }}
           -p:ApplicationVersion=1
-          -p:CodesignKey="$CODESIGN_KEY"
-          -p:EnableCodeSigning=true
+          -p:EnableCodeSigning=false
           -p:EnableWindowsTargeting=true
           --output publish/installer-mac
 
-      - name: Create .dmg
+      - name: Sign .app and create .dmg
+        env:
+          CODESIGN_KEY: ${{ secrets.APPLE_CODESIGN_IDENTITY }}
         run: |
-          echo "--- publish/installer-mac contents ---"
-          find publish/installer-mac -maxdepth 5 | head -40
-          APP=$(find publish/installer-mac -name "*.app" -maxdepth 5 | head -1)
+          APP=$(find publish/installer-mac -name "*.app" | head -1)
+          if [ -z "$APP" ]; then
+            echo "No .app found, searching entire publish output:"
+            find publish/installer-mac
+            exit 1
+          fi
+          echo "Found: $APP"
+          # Deep-sign the .app bundle
+          codesign --deep --force --verify --verbose \
+            --sign "$CODESIGN_KEY" \
+            --options runtime \
+            "$APP"
+          # Package into DMG
           mkdir -p dist dmg_staging
           cp -R "$APP" dmg_staging/
           ln -s /Applications dmg_staging/Applications
@@ -177,11 +186,8 @@ jobs:
             -ov -format UDZO \
             dist/AgentFederation-mac.dmg
           rm -rf dmg_staging
-
-      - name: Sign .dmg
-        env:
-          CODESIGN_KEY: ${{ secrets.APPLE_CODESIGN_IDENTITY }}
-        run: codesign --sign "$CODESIGN_KEY" dist/AgentFederation-mac.dmg
+          # Sign the DMG itself
+          codesign --sign "$CODESIGN_KEY" dist/AgentFederation-mac.dmg
 
       - name: Notarize .dmg
         env:
