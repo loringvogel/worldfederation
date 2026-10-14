@@ -14,7 +14,7 @@
     <!-- Produce a plain EXE on Windows; no MSIX packaging needed -->
     <WindowsPackageType>None</WindowsPackageType>
     <!-- Mac Catalyst minimum OS -->
-    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">14.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
     <!-- Entitlements for FolderPicker + outbound networking -->
     <CodesignEntitlements Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">Platforms/MacCatalyst/Entitlements.plist</CodesignEntitlements>
     <!-- Windows minimum OS -->
