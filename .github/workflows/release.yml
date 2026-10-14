@@ -166,7 +166,9 @@ jobs:
 
       - name: Create .dmg
         run: |
-          APP=$(find publish/installer-mac -name "*.app" -maxdepth 3 | head -1)
+          echo "--- publish/installer-mac contents ---"
+          find publish/installer-mac -maxdepth 5 | head -40
+          APP=$(find publish/installer-mac -name "*.app" -maxdepth 5 | head -1)
           mkdir -p dist dmg_staging
           cp -R "$APP" dmg_staging/
           ln -s /Applications dmg_staging/Applications
