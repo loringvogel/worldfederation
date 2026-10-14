@@ -25,7 +25,7 @@
          CA2007: ConfigureAwait — MAUI UI event handlers must stay on the UI thread.
          CA1812: internal DTO classes instantiated by JSON deserializer via reflection.
          CA5392: P/Invoke in Windows App SDK file we do not own. -->
-    <NoWarn>$(NoWarn);CA1056;CA1031;CA2007;CA1812;CA5392</NoWarn>
+    <NoWarn>$(NoWarn);CA1056;CA1031;CA2007;CA1812;CA5392;CA1711</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
