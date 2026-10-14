@@ -161,22 +161,36 @@ jobs:
           -p:EnableWindowsTargeting=true
           --output publish/installer-mac
 
-      - name: Sign .app and create .dmg
+      - name: Extract .app from .pkg, sign, and create .dmg
         env:
           CODESIGN_KEY: ${{ secrets.APPLE_CODESIGN_IDENTITY }}
         run: |
-          APP=$(find publish/installer-mac -name "*.app" | head -1)
+          PKG=$(find publish/installer-mac -name "*.pkg" | head -1)
+          echo "Found pkg: $PKG"
+
+          # Expand the flat pkg and extract the cpio payload
+          mkdir -p pkg_expanded pkg_payload
+          pkgutil --expand "$PKG" pkg_expanded
+          PAYLOAD=$(find pkg_expanded -name "Payload" | head -1)
+          echo "Payload: $PAYLOAD"
+          cd pkg_payload
+          cat "$OLDPWD/$PAYLOAD" | gunzip -c | cpio -id 2>/dev/null || true
+          cd "$OLDPWD"
+
+          APP=$(find pkg_payload -name "*.app" | head -1)
+          echo "Extracted app: $APP"
           if [ -z "$APP" ]; then
-            echo "No .app found, searching entire publish output:"
-            find publish/installer-mac
+            echo "Contents of pkg_payload:"
+            find pkg_payload
             exit 1
           fi
-          echo "Found: $APP"
+
           # Deep-sign the .app bundle
           codesign --deep --force --verify --verbose \
             --sign "$CODESIGN_KEY" \
             --options runtime \
             "$APP"
+
           # Package into DMG
           mkdir -p dist dmg_staging
           cp -R "$APP" dmg_staging/
@@ -185,7 +199,8 @@ jobs:
             -srcfolder dmg_staging \
             -ov -format UDZO \
             dist/AgentFederation-mac.dmg
-          rm -rf dmg_staging
+          rm -rf dmg_staging pkg_expanded pkg_payload
+
           # Sign the DMG itself
           codesign --sign "$CODESIGN_KEY" dist/AgentFederation-mac.dmg
 
