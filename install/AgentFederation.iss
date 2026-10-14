@@ -27,7 +27,7 @@ UninstallDisplayIcon={app}\AgentFederation.exe
 DisableFinishedPage=no
 
 [Files]
-Source: "publish\installer-win\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\Agent Federation"; Filename: "{app}\AgentFederation.exe"

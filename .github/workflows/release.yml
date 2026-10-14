@@ -166,20 +166,15 @@ jobs:
 
       - name: Create .dmg
         run: |
-          brew install create-dmg
           APP=$(find publish/installer-mac -name "*.app" -maxdepth 3 | head -1)
-          APP_DIR=$(dirname "$APP")
-          mkdir -p dist
-          create-dmg \
-            --volname "Agent Federation" \
-            --window-pos 200 120 \
-            --window-size 580 380 \
-            --icon-size 96 \
-            --icon "$(basename "$APP")" 160 185 \
-            --hide-extension "$(basename "$APP")" \
-            --app-drop-link 400 185 \
-            "dist/AgentFederation-mac.dmg" \
-            "$APP_DIR/"
+          mkdir -p dist dmg_staging
+          cp -R "$APP" dmg_staging/
+          ln -s /Applications dmg_staging/Applications
+          hdiutil create -volname "Agent Federation" \
+            -srcfolder dmg_staging \
+            -ov -format UDZO \
+            dist/AgentFederation-mac.dmg
+          rm -rf dmg_staging
 
       - name: Sign .dmg
         env:
@@ -252,6 +247,7 @@ jobs:
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" `
             /DAppVersion=${{ steps.version.outputs.version }} `
+            "/DSourceDir=${{ github.workspace }}\publish\installer-win" `
             install\AgentFederation.iss
 
       - name: Upload artifact
