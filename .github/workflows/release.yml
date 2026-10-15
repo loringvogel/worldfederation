@@ -169,7 +169,7 @@ jobs:
           echo "Found pkg: $PKG"
 
           # Expand the flat pkg and extract the cpio payload
-          mkdir -p pkg_expanded pkg_payload
+          mkdir -p pkg_payload
           pkgutil --expand "$PKG" pkg_expanded
           PAYLOAD=$(find pkg_expanded -name "Payload" | head -1)
           echo "Payload: $PAYLOAD"
