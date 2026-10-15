@@ -124,11 +124,16 @@
                 </VerticalStackLayout>
             </Border>
 
-            <!-- ── Save ── -->
-            <Button Text="Save Settings" Clicked="OnSave"
-                    BackgroundColor="#0a84ff" TextColor="White"
-                    CornerRadius="8" FontSize="15" HeightRequest="44"
-                    Margin="0,4,0,30" />
+            <!-- ── Save / Done ── -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,4,0,30">
+                <Button Grid.Column="0" Text="Save Settings" Clicked="OnSave"
+                        BackgroundColor="#0a84ff" TextColor="White"
+                        CornerRadius="8" FontSize="15" HeightRequest="44" />
+                <Button Grid.Column="1" Text="Done" Clicked="OnDone"
+                        BackgroundColor="{AppThemeBinding Light=#e5e5ea, Dark=#3a3a3c}"
+                        TextColor="{AppThemeBinding Light=Black, Dark=White}"
+                        CornerRadius="8" FontSize="15" HeightRequest="44" WidthRequest="90" />
+            </Grid>
 
         </VerticalStackLayout>
     </ScrollView>

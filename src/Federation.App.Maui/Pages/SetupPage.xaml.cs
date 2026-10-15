@@ -418,6 +418,9 @@ public partial class SetupPage : ContentPage
         }
     }
 
+    private async void OnDone(object? sender, EventArgs e)
+        => await Shell.Current.GoToAsync("//discussion");
+
     private void OnSave(object? sender, EventArgs e)
     {
         var s = _settings.Current;
