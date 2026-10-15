@@ -83,7 +83,8 @@
                     </Picker>
                     <Grid x:Name="ProjectFolderRow" ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="False">
                         <Entry x:Name="ProjectFolderEntry" Grid.Column="0"
-                               Placeholder="(tap Browse to choose)" FontSize="13" IsReadOnly="True" />
+                               Placeholder="/path/to/project  (or type directly)" FontSize="13"
+                               TextChanged="OnProjectFolderTextChanged" />
                         <Button Grid.Column="1" Text="Browse…" Clicked="OnBrowseProjectFolder"
                                 BackgroundColor="{AppThemeBinding Light=#e5e5ea, Dark=#3a3a3c}"
                                 TextColor="{AppThemeBinding Light=Black, Dark=White}"

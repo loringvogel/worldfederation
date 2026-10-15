@@ -90,6 +90,11 @@ public partial class SetupPage : ContentPage
         SetupClaudeButton.IsEnabled = isDesktop || !string.IsNullOrEmpty(ProjectFolderEntry.Text);
     }
 
+    private void OnProjectFolderTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        SetupClaudeButton.IsEnabled = !string.IsNullOrWhiteSpace(e.NewTextValue);
+    }
+
     private void OnBrowseProjectFolder(object? sender, EventArgs e)
     {
         // FolderPicker is Windows/Mac only — handled via platform-specific API
