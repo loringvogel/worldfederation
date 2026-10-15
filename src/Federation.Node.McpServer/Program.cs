@@ -24,11 +24,14 @@ public static class Program
     public static async Task Main(string[] args)
     {
         // Parse CLI flags
+        await Console.Error.WriteLineAsync($"[federation-mcp] starting, config={GetArgValue(args, "--config") ?? "./federation-node.json"}").ConfigureAwait(false);
+
         var configPath = GetArgValue(args, "--config") ?? "./federation-node.json";
         var roomOverride = GetArgValue(args, "--room");
         var discussionOverride = GetArgValue(args, "--discussion");
 
         var config = NodeConfig.Load(configPath);
+        await Console.Error.WriteLineAsync($"[federation-mcp] config loaded, registered={config.DeviceId is not null}").ConfigureAwait(false);
 
         // Apply overrides
         if (roomOverride is not null) config.ActiveRoomId = roomOverride;

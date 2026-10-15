@@ -93,6 +93,33 @@ jobs:
           Compress-Archive -Path publish/cli/federation.exe           -DestinationPath dist/federation-${{ matrix.rid }}.zip
           Compress-Archive -Path publish/mcp/federation-mcp.exe      -DestinationPath dist/federation-mcp-${{ matrix.rid }}.zip
 
+      - name: Import Developer ID certificate (macOS)
+        if: runner.os == 'macOS'
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PASS=$(openssl rand -base64 32)
+          echo "$CERTIFICATE_BASE64" | base64 --decode > /tmp/cert.p12
+          security create-keychain -p "$KEYCHAIN_PASS" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASS" build.keychain
+          security import /tmp/cert.p12 -k build.keychain \
+            -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list \
+            -S apple-tool:,apple: -s -k "$KEYCHAIN_PASS" build.keychain
+          rm /tmp/cert.p12
+
+      - name: Sign binaries (macOS)
+        if: runner.os == 'macOS'
+        env:
+          CODESIGN_KEY: ${{ secrets.APPLE_CODESIGN_IDENTITY }}
+        run: |
+          chmod +x publish/relay/federation-relay publish/cli/federation publish/mcp/federation-mcp
+          codesign --force --sign "$CODESIGN_KEY" --options runtime publish/relay/federation-relay
+          codesign --force --sign "$CODESIGN_KEY" --options runtime publish/cli/federation
+          codesign --force --sign "$CODESIGN_KEY" --options runtime publish/mcp/federation-mcp
+
       - name: Package (macOS / Linux)
         if: runner.os != 'Windows'
         run: |
@@ -100,7 +127,9 @@ jobs:
           zip -j dist/federation-relay-${{ matrix.rid }}.zip publish/relay/federation-relay
           zip -j dist/federation-${{ matrix.rid }}.zip       publish/cli/federation
           zip -j dist/federation-mcp-${{ matrix.rid }}.zip   publish/mcp/federation-mcp
-          chmod +x publish/relay/federation-relay publish/cli/federation publish/mcp/federation-mcp
+          if [ "$RUNNER_OS" != "macOS" ]; then
+            chmod +x publish/relay/federation-relay publish/cli/federation publish/mcp/federation-mcp
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
