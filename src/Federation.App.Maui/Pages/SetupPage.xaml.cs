@@ -132,8 +132,8 @@ public partial class SetupPage : ContentPage
 
         try
         {
-            // 1. Download federation-mcp if not already installed
-            if (!File.Exists(McpExePath))
+            // 1. Download federation-mcp if not already installed or if it's not a valid Mach-O/PE binary
+            if (!File.Exists(McpExePath) || !IsValidExecutable(McpExePath))
             {
                 SetupProgressLabel.Text = "Downloading federation-mcp…";
                 await DownloadMcpBinaryAsync().ConfigureAwait(true);
@@ -195,7 +195,10 @@ public partial class SetupPage : ContentPage
 
         // Make executable on macOS/Linux
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            System.Diagnostics.Process.Start("chmod", $"+x \"{McpExePath}\"")?.WaitForExit();
+            File.SetUnixFileMode(McpExePath,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+                UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
+                UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
     }
 
     private static void WriteNodeConfig(AppSettings s)
@@ -287,11 +290,27 @@ public partial class SetupPage : ContentPage
         File.WriteAllText(configPath, JsonSerializer.Serialize(root, JsonOpts));
     }
 
+    private static bool IsValidExecutable(string path)
+    {
+        try
+        {
+            using var fs = File.OpenRead(path);
+            Span<byte> magic = stackalloc byte[4];
+            if (fs.Read(magic) < 4) return false;
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                return magic[0] == 'M' && magic[1] == 'Z'; // PE
+            // Mach-O: 0xFEEDFACE / 0xFEEDFACF / 0xCEFAEDFE / 0xCFFAEDFE
+            return (magic[0] == 0xCE || magic[0] == 0xCF) && magic[1] == 0xFA && magic[2] == 0xED && magic[3] == 0xFE
+                || magic[0] == 0xFE && magic[1] == 0xED && magic[2] == 0xFA && (magic[3] == 0xCE || magic[3] == 0xCF);
+        }
+        catch { return false; }
+    }
+
     private static string GetRid()
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             return RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "win-arm64" : "win-x64";
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        if (OperatingSystem.IsMacCatalyst() || RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             return RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "osx-arm64" : "osx-x64";
         return RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "linux-arm64" : "linux-x64";
     }
