@@ -18,7 +18,7 @@
                        FontSize="12" VerticalOptions="Center" />
                 <Label x:Name="SubmissionsLabel" Text="" TextColor="#8e8e93"
                        FontSize="12" VerticalOptions="Center" />
-                <Button x:Name="GoToSetupButton" Text="Open Setup" IsVisible="false"
+                <Button x:Name="GoToSetupButton" Text="Setup" IsVisible="false"
                         Clicked="OnGoToSetupClicked"
                         BackgroundColor="#0a84ff" TextColor="White"
                         CornerRadius="6" FontSize="12"

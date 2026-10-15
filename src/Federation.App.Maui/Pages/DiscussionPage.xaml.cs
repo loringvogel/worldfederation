@@ -32,10 +32,10 @@ public partial class DiscussionPage : ContentPage
         // Ensure DeviceToken is loaded from DPAPI/Keychain before any relay call.
         await _settings.InitializeAsync().ConfigureAwait(true);
 
+        GoToSetupButton.IsVisible = true;
         if (!_settings.Current.IsRegistered)
         {
             PhaseLabel.Text = "Not registered";
-            GoToSetupButton.IsVisible = true;
             return;
         }
         await LoadAsync();
