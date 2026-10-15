@@ -273,12 +273,8 @@ public sealed class CouncilNode : IDisposable
             return;
         }
 
-        // Verify not expired
-        if (envelope.ExpiresAt <= DateTimeOffset.UtcNow)
-        {
-            _logger.LogWarning("Envelope {MessageId} has expired. Rejecting.", envelope.MessageId);
-            return;
-        }
+        // Note: expiry is enforced by the relay at storage time; clients read historical
+        // messages and must not reject on ExpiresAt. Log only.
 
         // Verify epoch matches current group session
         if (envelope.Epoch != _groupSession.CurrentEpoch)

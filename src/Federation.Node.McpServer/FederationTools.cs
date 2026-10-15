@@ -65,7 +65,7 @@ public sealed class FederationTools
             return "Error: No room ID specified and no active room in config.";
         try
         {
-            using var service = BuildService(config, httpFactory);
+            using var service = BuildService(config, httpFactory, roomId);
             var roster = await service.Tool.GetRosterAsync(new RoomId(Guid.Parse(roomId))).ConfigureAwait(false);
             return JsonSerializer.Serialize(roster, JsonOpts);
         }
@@ -91,7 +91,7 @@ public sealed class FederationTools
             return "Error: No room ID specified and no active room in config.";
         try
         {
-            using var service = BuildService(config, httpFactory);
+            using var service = BuildService(config, httpFactory, roomId);
             var snapshot = await service.Tool.GetDiscussionAsync(new RoomId(Guid.Parse(roomId)), since_cursor).ConfigureAwait(false);
             return JsonSerializer.Serialize(snapshot, JsonOpts);
         }
@@ -209,7 +209,7 @@ public sealed class FederationTools
 
         try
         {
-            using var service = BuildService(config, httpFactory);
+            using var service = BuildService(config, httpFactory, roomId);
             var ok = await service.Tool.AcknowledgeAsync(new RoomId(Guid.Parse(roomId)), cursor).ConfigureAwait(false);
             return ok ? $"Acknowledged up to cursor {cursor}." : "Acknowledgement failed.";
         }
@@ -259,7 +259,7 @@ public sealed class FederationTools
         config.Save(configPath.Path);
 
         NodeService service;
-        try { service = BuildService(config, httpFactory); }
+        try { service = BuildService(config, httpFactory, roomId); }
         catch (Exception ex) { return $"Error: {ex.Message}"; }
 
         using (service)
@@ -279,7 +279,7 @@ public sealed class FederationTools
         return explicit_id ?? config.ActiveRoomId;
     }
 
-    private static NodeService BuildService(NodeConfig config, IHttpClientFactory httpFactory)
+    private static NodeService BuildService(NodeConfig config, IHttpClientFactory httpFactory, string? roomId = null)
     {
         if (config.DeviceId is null || config.DeviceToken is null)
             throw new InvalidOperationException("Node is not registered. Run 'federation register' first.");
@@ -305,12 +305,14 @@ public sealed class FederationTools
         var logger = loggerFactory.CreateLogger<CouncilNode>();
 
         var groupSession = new InMemoryGroupSession();
-        var keyRoomId = config.ActiveRoomId is not null
-            ? Guid.Parse(config.ActiveRoomId)
-            : (options.RoomIds.Length > 0 ? options.RoomIds[0].Value : (Guid?)null);
-        if (keyRoomId.HasValue)
+        // Derive the group key deterministically from the room ID so every process
+        // run produces the same key for the same room. Prefer the explicit roomId
+        // parameter, then fall back to config.ActiveRoomId, then the first known room.
+        var keyRoomIdStr = roomId ?? config.ActiveRoomId
+            ?? (options.RoomIds.Length > 0 ? options.RoomIds[0].Value.ToString() : null);
+        if (keyRoomIdStr is not null)
         {
-            var roomKey = System.Security.Cryptography.SHA256.HashData(keyRoomId.Value.ToByteArray());
+            var roomKey = System.Security.Cryptography.SHA256.HashData(Guid.Parse(keyRoomIdStr).ToByteArray());
             groupSession.SetGroupKey(roomKey, epoch: 1);
         }
 
