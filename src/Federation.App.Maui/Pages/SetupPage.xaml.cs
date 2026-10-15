@@ -127,6 +127,11 @@ public partial class SetupPage : ContentPage
         if (ClientTypePicker.SelectedIndex == 0 && string.IsNullOrEmpty(projectFolder))
         { ShowStatus("Choose a project folder first.", false); return; }
 
+        // Ensure secrets are loaded from Keychain before writing the node config.
+        await _settings.InitializeAsync().ConfigureAwait(true);
+        if (string.IsNullOrEmpty(_settings.Current.DeviceToken))
+        { ShowStatus("Device token not found in Keychain — please Unregister and Register again.", false); return; }
+
         SetupClaudeButton.IsEnabled = false;
         SetupProgressLabel.IsVisible = true;
 
@@ -139,9 +144,9 @@ public partial class SetupPage : ContentPage
                 await DownloadMcpBinaryAsync().ConfigureAwait(true);
             }
 
-            // 2. Write node config to ~/.federation/federation-node.json
-            SetupProgressLabel.Text = "Writing node config…";
-            WriteNodeConfig(s);
+            // 2. Fetch room memberships from relay, then write node config
+            SetupProgressLabel.Text = "Fetching room memberships…";
+            await WriteNodeConfigAsync(s).ConfigureAwait(true);
 
             // 3. Write MCP config to the appropriate location
             SetupProgressLabel.Text = "Writing Claude config…";
@@ -151,10 +156,22 @@ public partial class SetupPage : ContentPage
                 WriteMcpJson(projectFolder!);
 
             SetupProgressLabel.IsVisible = false;
-            var doneMsg = ClientTypePicker.SelectedIndex == 1
-                ? $"Done! Restart Claude Desktop to pick up the new config.\n\nYour Device ID:\n{s.DeviceId}\n\nShare it with your room owner to be invited."
-                : $"Done! Restart Claude Code in that folder.\n\nYour Device ID:\n{s.DeviceId}\n\nShare it with your room owner to be invited.";
-            ShowStatus(doneMsg, true);
+
+            // Read back what was written so we can show the user their rooms.
+            string roomSummary;
+            try
+            {
+                var written = System.Text.Json.JsonDocument.Parse(File.ReadAllText(NodeConfigPath));
+                var roomsEl = written.RootElement.GetProperty("Rooms");
+                var roomNames = roomsEl.EnumerateObject().Select(p => p.Value.GetString() ?? p.Name).ToList();
+                roomSummary = roomNames.Count > 0
+                    ? $"Joined rooms: {string.Join(", ", roomNames)}"
+                    : "No rooms yet — share your Device ID to get invited.";
+            }
+            catch { roomSummary = $"Device ID: {s.DeviceId}"; }
+
+            var clientLabel = ClientTypePicker.SelectedIndex == 1 ? "Claude Desktop" : "Claude Code";
+            ShowStatus($"Done! Restart {clientLabel}.\n\n{roomSummary}", true);
         }
         catch (Exception ex)
         {
@@ -201,9 +218,32 @@ public partial class SetupPage : ContentPage
                 UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
     }
 
-    private static void WriteNodeConfig(AppSettings s)
+    private async Task WriteNodeConfigAsync(AppSettings s)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(NodeConfigPath)!);
+
+        // Query relay for this device's room memberships so the MCP server
+        // knows which rooms it belongs to (needed for group key derivation).
+        var rooms = new Dictionary<string, string>();
+        string? activeRoomId = null;
+        try
+        {
+            using var client = _http.CreateClient();
+            client.DefaultRequestHeaders.Add("X-Device-Id", s.DeviceId);
+            client.DefaultRequestHeaders.Add("X-Device-Token", s.DeviceToken);
+            var relayUrl = (s.RelayUrl ?? "").TrimEnd('/');
+            var roomList = await client
+                .GetFromJsonAsync<List<RoomSummaryDto>>($"{relayUrl}/v1/rooms",
+                    new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                .ConfigureAwait(true);
+            if (roomList is not null)
+            {
+                foreach (var r in roomList)
+                    rooms[r.RoomId] = r.Name;
+                activeRoomId = roomList.FirstOrDefault()?.RoomId;
+            }
+        }
+        catch { /* relay unreachable — write config without rooms; user can re-run setup later */ }
 
         var config = new
         {
@@ -211,8 +251,8 @@ public partial class SetupPage : ContentPage
             DeviceName  = s.DeviceName,
             DeviceId    = s.DeviceId,
             DeviceToken = s.DeviceToken,
-            Rooms       = new Dictionary<string, string>(),
-            ActiveRoomId       = (string?)null,
+            Rooms       = rooms,
+            ActiveRoomId       = activeRoomId,
             ActiveDiscussionId = (string?)null,
             SenderSequences    = new Dictionary<string, long>(),
         };
@@ -220,6 +260,8 @@ public partial class SetupPage : ContentPage
         var json = JsonSerializer.Serialize(config, JsonOpts);
         File.WriteAllText(NodeConfigPath, json);
     }
+
+    private sealed record RoomSummaryDto(string RoomId, string Name, int MemberCount);
 
     private static void WriteMcpJson(string projectFolder)
     {
