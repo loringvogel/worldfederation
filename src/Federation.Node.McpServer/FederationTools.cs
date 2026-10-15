@@ -31,11 +31,18 @@ public sealed class FederationTools
         NodeConfig config,
         IHttpClientFactory httpFactory)
     {
-        using var service = BuildService(config, httpFactory);
-        var rooms = await service.Tool.ListRoomsAsync().ConfigureAwait(false);
-        if (rooms.Count == 0)
-            return "No rooms found. Register with a relay and get invited to a room first.";
-        return JsonSerializer.Serialize(rooms, JsonOpts);
+        try
+        {
+            using var service = BuildService(config, httpFactory);
+            var rooms = await service.Tool.ListRoomsAsync().ConfigureAwait(false);
+            if (rooms.Count == 0)
+                return "No rooms found. Register with a relay and get invited to a room first.";
+            return JsonSerializer.Serialize(rooms, JsonOpts);
+        }
+        catch (Exception ex)
+        {
+            return $"Error: {ex.Message}";
+        }
     }
 
     // ── get_roster ──
@@ -56,10 +63,13 @@ public sealed class FederationTools
         var roomId = ResolveRoomId(config, room_id);
         if (roomId is null)
             return "Error: No room ID specified and no active room in config.";
-
-        using var service = BuildService(config, httpFactory);
-        var roster = await service.Tool.GetRosterAsync(new RoomId(Guid.Parse(roomId))).ConfigureAwait(false);
-        return JsonSerializer.Serialize(roster, JsonOpts);
+        try
+        {
+            using var service = BuildService(config, httpFactory);
+            var roster = await service.Tool.GetRosterAsync(new RoomId(Guid.Parse(roomId))).ConfigureAwait(false);
+            return JsonSerializer.Serialize(roster, JsonOpts);
+        }
+        catch (Exception ex) { return $"Error: {ex.Message}"; }
     }
 
     // ── get_discussion ──
@@ -79,10 +89,13 @@ public sealed class FederationTools
         var roomId = ResolveRoomId(config, room_id);
         if (roomId is null)
             return "Error: No room ID specified and no active room in config.";
-
-        using var service = BuildService(config, httpFactory);
-        var snapshot = await service.Tool.GetDiscussionAsync(new RoomId(Guid.Parse(roomId)), since_cursor).ConfigureAwait(false);
-        return JsonSerializer.Serialize(snapshot, JsonOpts);
+        try
+        {
+            using var service = BuildService(config, httpFactory);
+            var snapshot = await service.Tool.GetDiscussionAsync(new RoomId(Guid.Parse(roomId)), since_cursor).ConfigureAwait(false);
+            return JsonSerializer.Serialize(snapshot, JsonOpts);
+        }
+        catch (Exception ex) { return $"Error: {ex.Message}"; }
     }
 
     // ── submit_proposal ──
@@ -194,9 +207,13 @@ public sealed class FederationTools
         if (roomId is null)
             return "Error: No room ID specified and no active room in config.";
 
-        using var service = BuildService(config, httpFactory);
-        var ok = await service.Tool.AcknowledgeAsync(new RoomId(Guid.Parse(roomId)), cursor).ConfigureAwait(false);
-        return ok ? $"Acknowledged up to cursor {cursor}." : "Acknowledgement failed.";
+        try
+        {
+            using var service = BuildService(config, httpFactory);
+            var ok = await service.Tool.AcknowledgeAsync(new RoomId(Guid.Parse(roomId)), cursor).ConfigureAwait(false);
+            return ok ? $"Acknowledged up to cursor {cursor}." : "Acknowledgement failed.";
+        }
+        catch (Exception ex) { return $"Error: {ex.Message}"; }
     }
 
     // ── Helpers ──
@@ -241,7 +258,12 @@ public sealed class FederationTools
         config.SenderSequences[discussionId] = seq + 1;
         config.Save(configPath.Path);
 
-        using var service = BuildService(config, httpFactory);
+        NodeService service;
+        try { service = BuildService(config, httpFactory); }
+        catch (Exception ex) { return $"Error: {ex.Message}"; }
+
+        using (service)
+        {
         var envelope = service.Node.CreateEnvelope(rid, did, messageType, round, text, seq);
         var ok = await service.Node.SubmitEnvelopeAsync(envelope).ConfigureAwait(false);
 
@@ -249,6 +271,7 @@ public sealed class FederationTools
             return $"Failed to submit {messageType}. Check that the discussion is in the correct phase.";
 
         return $"Submitted {messageType} successfully. Message ID: {envelope.MessageId}";
+        }
     }
 
     private static string? ResolveRoomId(NodeConfig config, string? explicit_id)
