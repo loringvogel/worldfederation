@@ -490,3 +490,13 @@ tools/osx-arm64/
 # Node config files (contain device tokens)
 *-node.json
 .mcp.json
+
+# Apple certificates and keys — never commit private keys
+.apple-cert/
+
+# Local tool binaries
+tools/
+
+# Claude Code local settings
+.claude/settings.local.json
+.claude/worktrees/
