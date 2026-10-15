@@ -34,7 +34,8 @@ public partial class DiscussionPage : ContentPage
 
         if (!_settings.Current.IsRegistered)
         {
-            PhaseLabel.Text = "Not registered — go to Setup tab.";
+            PhaseLabel.Text = "Not registered";
+            GoToSetupButton.IsVisible = true;
             return;
         }
         await LoadAsync();
@@ -49,6 +50,9 @@ public partial class DiscussionPage : ContentPage
         base.OnDisappearing();
         _pollTimer?.Stop();
     }
+
+    private async void OnGoToSetupClicked(object sender, EventArgs e)
+        => await Shell.Current.GoToAsync("//setup");
 
     // ── Data loading ────────────────────────────────────────────────────
 
